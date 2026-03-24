@@ -79,115 +79,9 @@ export function getAllowedTools(appRoles: AppRole[]): string[] {
 // ─── Odoo Authentication ────────────────────────────────────────────
 
 /**
- * Try /web/session/authenticate first (Odoo web client endpoint).
- * Returns { uid, name } on success, or null if 404 / unavailable.
+ * Authenticate with Odoo using the common.authenticate JSON-RPC service.
+ * Returns uid (number) on success, or false on invalid credentials.
  */
-async function tryWebSessionAuth(
-  username: string,
-  password: string
-): Promise<{ uid: number; name: string } | null> {
-  const url = `${ODOO_URL}/web/session/authenticate`
-  console.log("[v0] Trying /web/session/authenticate at:", url)
-
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        method: "call",
-        id: Date.now(),
-        params: { db: ODOO_DB, login: username, password },
-      }),
-      signal: AbortSignal.timeout(15000),
-    })
-
-    console.log("[v0] /web/session/authenticate response status:", res.status)
-
-    if (res.status === 404) {
-      console.log("[v0] /web/session/authenticate returned 404, will try /jsonrpc fallback")
-      return null
-    }
-
-    if (!res.ok) {
-      console.log("[v0] /web/session/authenticate returned HTTP", res.status)
-      return null
-    }
-
-    const data = await res.json()
-    console.log("[v0] /web/session/authenticate result uid:", data.result?.uid)
-
-    if (data.error) {
-      console.log("[v0] /web/session/authenticate JSON-RPC error:", data.error.message)
-      return null
-    }
-
-    const uid = data.result?.uid
-    if (!uid || uid === false) return null
-
-    return {
-      uid: uid as number,
-      name: (data.result?.name || data.result?.username || username) as string,
-    }
-  } catch (err) {
-    console.log("[v0] /web/session/authenticate failed:", err instanceof Error ? err.message : err)
-    return null
-  }
-}
-
-/**
- * Fallback: use /jsonrpc with common.login (XML-RPC-style over JSON-RPC).
- * Works on virtually all Odoo deployments.
- */
-async function tryJsonRpcLogin(
-  username: string,
-  password: string
-): Promise<{ uid: number; name: string } | null> {
-  const url = `${ODOO_URL}/jsonrpc`
-  console.log("[v0] Trying /jsonrpc common.login at:", url)
-
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        method: "call",
-        id: Date.now(),
-        params: {
-          service: "common",
-          method: "login",
-          args: [ODOO_DB, username, password],
-        },
-      }),
-      signal: AbortSignal.timeout(15000),
-    })
-
-    console.log("[v0] /jsonrpc common.login response status:", res.status)
-
-    if (!res.ok) {
-      throw new Error(`Odoo returned HTTP ${res.status}`)
-    }
-
-    const data = await res.json()
-    console.log("[v0] /jsonrpc common.login result:", data.result)
-
-    if (data.error) {
-      throw new Error(data.error.data?.message || data.error.message || "Login failed")
-    }
-
-    const uid = data.result
-    if (!uid || uid === false) {
-      throw new Error("Invalid username or password")
-    }
-
-    return { uid: uid as number, name: username }
-  } catch (err) {
-    console.log("[v0] /jsonrpc common.login failed:", err instanceof Error ? err.message : err)
-    throw err
-  }
-}
-
 export async function authenticateWithOdoo(
   username: string,
   password: string
@@ -199,82 +93,117 @@ export async function authenticateWithOdoo(
   if (!ODOO_URL) throw new Error("ODOO_URL environment variable is not set")
   if (!ODOO_DB) throw new Error("ODOO_DB environment variable is not set")
 
-  // Strategy: try /web/session/authenticate, fall back to /jsonrpc
-  let result = await tryWebSessionAuth(username, password)
-
-  if (!result) {
-    console.log("[v0] /web/session/authenticate unavailable, falling back to /jsonrpc")
-    result = await tryJsonRpcLogin(username, password)
-  }
-
-  if (!result) {
-    throw new Error("Invalid username or password")
-  }
-
-  const { uid, name } = result
-
-  console.log("[v0] Auth success, uid:", uid, "name:", name)
-
-  // Fetch user groups for RBAC
-  let roles: string[] = []
-  let roleNames: string[] = []
+  const url = `${ODOO_URL}/jsonrpc`
+  console.log("[v0] Calling Odoo at:", url)
 
   try {
-    const groupsRes = await fetch(`${ODOO_URL}/jsonrpc`, {
+    const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         jsonrpc: "2.0",
         method: "call",
-        id: Date.now(),
         params: {
-          service: "object",
-          method: "execute_kw",
-          args: [ODOO_DB, uid, password, "res.users", "read", [[uid]], { fields: ["groups_id"] }],
+          service: "common",
+          method: "authenticate",
+          args: [ODOO_DB, username, password, {}],
         },
+        id: Math.random(),
       }),
       signal: AbortSignal.timeout(15000),
     })
 
-    const groupsData = await groupsRes.json()
-    const groupIds: number[] = groupsData.result?.[0]?.groups_id || []
-    console.log("[v0] User group IDs count:", groupIds.length)
+    console.log("[v0] Odoo response status:", response.status)
 
-    if (groupIds.length > 0) {
-      const xmlIdRes = await fetch(`${ODOO_URL}/jsonrpc`, {
+    if (!response.ok) {
+      throw new Error(`Odoo returned HTTP ${response.status}`)
+    }
+
+    const data = await response.json()
+    console.log("[v0] Odoo JSON-RPC response error:", data.error)
+    console.log("[v0] Odoo JSON-RPC response result:", data.result)
+
+    // Odoo returns uid (number) on success, or false on failure
+    const uid = data.result
+    if (!uid || uid === false) {
+      throw new Error("Invalid username or password")
+    }
+
+    if (typeof uid !== "number") {
+      throw new Error(`Unexpected response type: ${typeof uid}`)
+    }
+
+    console.log("[v0] Authentication successful, uid:", uid)
+
+    // Fetch user groups for RBAC (optional - if fails, just use default role)
+    let roles: string[] = []
+    let roleNames: string[] = []
+
+    try {
+      const groupsRes = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           jsonrpc: "2.0",
           method: "call",
-          id: Date.now(),
+          id: Math.random(),
           params: {
             service: "object",
             method: "execute_kw",
-            args: [
-              ODOO_DB, uid, password,
-              "ir.model.data",
-              "search_read",
-              [[["model", "=", "res.groups"], ["res_id", "in", groupIds]]],
-              { fields: ["complete_name", "module", "name"], limit: 200 },
-            ],
+            args: [ODOO_DB, uid, password, "res.users", "read", [[uid]], { fields: ["groups_id"] }],
           },
         }),
         signal: AbortSignal.timeout(15000),
       })
 
-      const xmlIdData = await xmlIdRes.json()
-      const groupRecords = xmlIdData.result || []
+      const groupsData = await groupsRes.json()
+      const userRecord = groupsData.result?.[0]
+      const groupIds: number[] = userRecord?.groups_id || []
 
-      roles = groupRecords.map((g: { module: string; name: string }) => `${g.module}.${g.name}`)
-      roleNames = groupRecords.map((g: { complete_name: string }) => g.complete_name).filter(Boolean)
-      console.log("[v0] Resolved roles:", roles.length)
+      console.log("[v0] User has", groupIds.length, "groups")
+
+      if (groupIds.length > 0) {
+        const xmlIdRes = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            method: "call",
+            id: Math.random(),
+            params: {
+              service: "object",
+              method: "execute_kw",
+              args: [
+                ODOO_DB,
+                uid,
+                password,
+                "ir.model.data",
+                "search_read",
+                [[["model", "=", "res.groups"], ["res_id", "in", groupIds]]],
+                { fields: ["complete_name", "module", "name"], limit: 200 },
+              ],
+            },
+          }),
+          signal: AbortSignal.timeout(15000),
+        })
+
+        const xmlIdData = await xmlIdRes.json()
+        const groupRecords = xmlIdData.result || []
+
+        roles = groupRecords.map((g: { module: string; name: string }) => `${g.module}.${g.name}`)
+        roleNames = groupRecords.map((g: { complete_name: string }) => g.complete_name).filter(Boolean)
+        console.log("[v0] Resolved", roles.length, "roles")
+      }
+    } catch (err) {
+      console.warn("[v0] Failed to fetch Odoo groups, defaulting to staff role:", err instanceof Error ? err.message : err)
     }
-  } catch (err) {
-    console.warn("[v0] Failed to fetch Odoo groups, defaulting to staff role:", err)
-  }
 
-  return { uid, username, name, roles, roleNames }
+    return { uid, username, name: username, roles, roleNames }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error("[v0] Odoo authentication error:", message)
+    throw err
+  }
 }
 
 // ─── Session Management (JWT + HTTP-only cookies) ───────────────────
