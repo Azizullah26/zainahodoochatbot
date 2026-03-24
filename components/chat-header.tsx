@@ -1,7 +1,7 @@
 "use client"
 
 import { useAuth } from "@/components/auth-provider"
-import { Database, LogOut, Shield, Zap } from "lucide-react"
+import { Database, LogOut, Zap } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -15,19 +15,8 @@ function getInitials(name: string): string {
     .toUpperCase()
 }
 
-const roleLabelMap: Record<string, string> = {
-  admin: "Admin",
-  project_manager: "Project Manager",
-  hr: "HR",
-  staff: "Staff",
-}
-
 export function ChatHeader() {
   const { user, logout } = useAuth()
-
-  const displayRoles = (user?.appRoles || [])
-    .map((r: string) => roleLabelMap[r] || r)
-    .slice(0, 2)
 
   return (
     <header className="flex items-center justify-between border-b border-border bg-card px-6 py-3">
@@ -53,16 +42,10 @@ export function ChatHeader() {
 
         {user && (
           <div className="flex items-center gap-2">
-            <div className="hidden items-end gap-1.5 sm:flex sm:flex-col">
+            <div className="hidden sm:flex sm:items-center">
               <span className="text-sm font-medium text-foreground leading-none">
                 {user.name}
               </span>
-              <div className="flex items-center gap-1">
-                <Shield className="size-3 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">
-                  {displayRoles.join(", ")}
-                </span>
-              </div>
             </div>
 
             <Avatar className="size-8 border border-border">
