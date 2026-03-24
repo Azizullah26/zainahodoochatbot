@@ -1,9 +1,14 @@
 import { signJwt, verifyJwt } from "@/lib/jwt"
 import { cookies } from "next/headers"
 
-// Normalize URL: strip trailing slashes to prevent double-slash in paths
+// Normalize URL: strip trailing slashes AND any path segments to get base domain
 function normalizeUrl(url: string): string {
-  return url.replace(/\/+$/, "")
+  try {
+    const urlObj = new URL(url)
+    return `${urlObj.protocol}//${urlObj.hostname}${urlObj.port ? `:${urlObj.port}` : ""}`
+  } catch {
+    return url.replace(/\/+$/, "").replace(/\/[a-z].*$/, "")
+  }
 }
 
 const ODOO_URL = normalizeUrl(process.env.ODOO_URL || "")
@@ -105,8 +110,8 @@ export async function authenticateWithOdoo(
         method: "call",
         params: {
           service: "common",
-          method: "authenticate",
-          args: [ODOO_DB, username, password, {}],
+          method: "login",
+          args: [ODOO_DB, username, password],
         },
         id: Math.random(),
       }),
