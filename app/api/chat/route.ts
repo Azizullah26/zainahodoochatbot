@@ -13,6 +13,8 @@ import {
   getAllowedModelsForRoles,
   isModelAllowed,
   resolveModelFromQuery,
+  detectModelsInQuery,
+  getModelFields,
   SYNONYMS,
 } from "@/lib/allowed-models"
 
@@ -25,7 +27,7 @@ function buildSystemPrompt(
 ): string {
   const modelList = allowedModels.join(", ")
   const synonymList = Object.entries(SYNONYMS)
-    .slice(0, 10)
+    .slice(0, 15)
     .map(([k, v]) => `"${k}" → ${v}`)
     .join(", ")
 
@@ -40,16 +42,32 @@ You have access to 4 tools:
 3. read_group: Aggregate data (totals, counts) by grouping
 4. calculator: Perform math calculations
 
-IMPORTANT RULES:
-- Always validate that requested model is in your allowed list
-- Use name_search FIRST to find record IDs, then search_read to get details
-- Use read_group to summarize data (totals, counts, averages)
+SMART MODEL DETECTION:
+When users ask about data, automatically detect the Odoo model they're referring to:
 - Recognize these synonyms: ${synonymList}
-- If user asks for data model you cannot access, explain their role doesn't have permission
-- Format results in clear tables or lists
-- Never make up data - always use tools to fetch real data from Odoo
-- If a tool returns empty results, say so clearly`
+- If they say "projects", fetch from "project.project"
+- If they say "employees", fetch from "hr.employee"
+- If they say "invoices" or "bills", fetch from "account.move"
+- Use search_read with appropriate filters based on context
+
+DATA ENHANCEMENT RULES:
+1. Always fetch the MOST RELEVANT fields for each model
+2. Present data in clear tables with proper formatting
+3. Include calculated summaries when relevant (use read_group for aggregation)
+4. Always validate requested model is in allowed list before fetching
+5. Use read_group to create reports (e.g., "Total expenses by department")
+6. Never make up data - always use tools to fetch real Odoo data
+7. If a search returns empty, clearly state no records match the criteria
+8. Format dates and numbers consistently
+9. Add context from related fields (e.g., show both employee name and department)
+
+RESPONSE FORMAT:
+- For single records: Show as organized key-value pairs
+- For multiple records: Use markdown tables
+- For aggregations: Use clear summaries with totals
+- Always include record count and any filters applied`
 }
+
 
 function createTools(uid: number, password: string, allowedModels: string[]) {
   return {
@@ -100,7 +118,7 @@ function createTools(uid: number, password: string, allowedModels: string[]) {
 
     search_read: tool({
       description:
-        "Fetch detailed records from Odoo with filtering, sorting, and field selection. Use this AFTER name_search to get full details, or for direct filtered queries.",
+        "Fetch detailed records from Odoo with filtering, sorting, and field selection. Use this AFTER name_search to get full details, or for direct filtered queries. Automatically optimizes field selection for readability.",
       inputSchema: z.object({
         model: z.string().describe("Odoo model"),
         domain: z
@@ -110,7 +128,7 @@ function createTools(uid: number, password: string, allowedModels: string[]) {
         fields: z
           .array(z.string())
           .optional()
-          .describe("Fields to retrieve (empty = all)"),
+          .describe("Fields to retrieve (empty = auto-select recommended fields)"),
         order: z
           .string()
           .optional()
@@ -123,12 +141,15 @@ function createTools(uid: number, password: string, allowedModels: string[]) {
         }
 
         try {
+          // Use recommended fields if none specified
+          const fieldsToFetch = fields && fields.length > 0 ? fields : getModelFields(model)
+          
           const results = await jsonRpcSearchRead(
             uid,
             password,
             model,
             domain || [],
-            fields || [],
+            fieldsToFetch,
             { order, limit }
           )
           return { success: true, count: results.length, data: results }

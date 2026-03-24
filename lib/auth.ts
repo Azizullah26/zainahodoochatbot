@@ -84,6 +84,7 @@ export function getAllowedTools(appRoles: AppRole[]): string[] {
 }
 
 // ─── Odoo Authentication ────────────────────────────────────────────
+// Model detection and data fetching system
 
 async function fetchEmployeeImage(
   uid: number,

@@ -39,6 +39,22 @@ export const ALLOWED_MODELS = {
 }
 
 /**
+ * Model-specific fields to fetch - maps model to recommended display fields
+ */
+export const MODEL_FIELDS: Record<string, string[]> = {
+  "hr.employee": ["id", "name", "emp_id", "department_id", "job_title", "work_email"],
+  "project.project": ["id", "name", "partner_id", "date_start", "date", "state"],
+  "project.task": ["id", "name", "project_id", "user_ids", "state", "date_deadline"],
+  "account.move": ["id", "name", "partner_id", "date", "amount_total", "state"],
+  "hr.leave": ["id", "employee_id", "date_from", "date_to", "state", "number_of_days"],
+  "purchase.order": ["id", "name", "partner_id", "date_order", "amount_total", "state"],
+  "hr.expense": ["id", "name", "employee_id", "amount", "state"],
+  "res.partner": ["id", "name", "email", "phone", "country_id"],
+  "hr.attendance": ["id", "employee_id", "check_in", "check_out"],
+  "hr.timesheet": ["id", "employee_id", "project_id", "date", "unit_amount"],
+}
+
+/**
  * Flat list of all allowed models for quick validation.
  */
 export const ALL_ALLOWED_MODELS = Object.values(ALLOWED_MODELS).flat()
@@ -114,5 +130,39 @@ export function isModelAllowed(model: string, roles: string[]): boolean {
 export function resolveModelFromQuery(query: string): string | null {
   const normalized = query.toLowerCase().trim()
   return SYNONYMS[normalized] || null
+}
+
+/**
+ * Get recommended fields to fetch for a model.
+ */
+export function getModelFields(model: string): string[] {
+  return MODEL_FIELDS[model] || []
+}
+
+/**
+ * Detect models mentioned in user query using synonyms.
+ */
+export function detectModelsInQuery(query: string): string[] {
+  const detected = new Set<string>()
+  const lowerQuery = query.toLowerCase()
+
+  // Check for direct model mentions
+  for (const [synonym, model] of Object.entries(SYNONYMS)) {
+    if (lowerQuery.includes(synonym)) {
+      detected.add(model)
+    }
+  }
+
+  // Check for model names directly
+  for (const modelList of Object.values(ALLOWED_MODELS)) {
+    for (const model of modelList) {
+      const modelName = model.split(".").pop()
+      if (lowerQuery.includes(modelName)) {
+        detected.add(model)
+      }
+    }
+  }
+
+  return Array.from(detected)
 }
 
