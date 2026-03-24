@@ -94,7 +94,7 @@ export function ToolOutput({
               Failed to fetch {label.toLowerCase()}
             </span>
           </div>
-          {output.error && (
+          {!!output.error && (
             <p className="mt-1 text-xs text-destructive/80">
               {String(output.error)}
             </p>
