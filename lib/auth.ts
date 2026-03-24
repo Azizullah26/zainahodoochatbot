@@ -1,6 +1,6 @@
 // auth.ts — Odoo JWT session management v2
 import { cookies } from "next/headers"
-import { jwtVerify, SignJWT } from "jose"
+import { signJwt, verifyJwt } from "@/lib/jwt"
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET ?? "dev-secret-key")
 const SESSION_COOKIE = "odoo_session"
@@ -34,26 +34,16 @@ export interface SessionPayload {
 
 // ─── JWT ────────────────────────────────────────────────────────────
 
-async function signJwt(
+async function createJwt(
   payload: Omit<SessionPayload, "iat" | "exp">,
-  secret: Uint8Array,
   expiresIn: number
 ): Promise<string> {
-  const now = Math.floor(Date.now() / 1000)
-  return new SignJWT(payload as Parameters<SignJWT["sign"]>[0])
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt(now)
-    .setExpirationTime(now + expiresIn)
-    .sign(secret)
+  return signJwt(payload as Record<string, unknown>, JWT_SECRET, expiresIn)
 }
 
-async function verifyJwt(token: string, secret: Uint8Array): Promise<SessionPayload | null> {
-  try {
-    const { payload } = await jwtVerify(token, secret)
-    return payload as unknown as SessionPayload
-  } catch {
-    return null
-  }
+async function parseJwt(token: string): Promise<SessionPayload | null> {
+  const result = await verifyJwt<SessionPayload>(token, JWT_SECRET)
+  return result?.payload ?? null
 }
 
 // ─── Session ────────────────────────────────────────────────────────
@@ -63,14 +53,14 @@ export async function getSession(): Promise<SessionPayload | null> {
     const store = await cookies()
     const token = store.get(SESSION_COOKIE)?.value
     if (!token) return null
-    return await verifyJwt(token, JWT_SECRET)
+    return await parseJwt(token)
   } catch {
     return null
   }
 }
 
 export async function createSession(user: OdooUser, password: string): Promise<void> {
-  const token = await signJwt(
+  const token = await createJwt(
     {
       uid: user.uid,
       username: user.username,
@@ -80,7 +70,6 @@ export async function createSession(user: OdooUser, password: string): Promise<v
       image: user.image,
       odooPassword: password,
     },
-    JWT_SECRET,
     SESSION_MAX_AGE
   )
   const store = await cookies()
