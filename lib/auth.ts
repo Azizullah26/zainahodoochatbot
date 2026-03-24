@@ -1,4 +1,5 @@
-// auth.ts — Odoo JWT session management v2
+// auth.ts — Odoo JWT session management v3
+// Imports signJwt and verifyJwt from separate jwt.ts module
 import { cookies } from "next/headers"
 import { signJwt, verifyJwt } from "@/lib/jwt"
 
