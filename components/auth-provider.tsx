@@ -66,20 +66,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
 
       console.log("[v0] Login response status:", res.status)
-      const data = await res.json()
+      
+      let data
+      try {
+        data = await res.json()
+      } catch (err) {
+        console.error("[v0] Failed to parse login response as JSON:", err)
+        throw new Error("Login failed: Invalid response from server")
+      }
+      
       console.log("[v0] Login response:", data)
 
       if (!data.success) {
         throw new Error(data.error || "Login failed")
       }
 
-      // Re-fetch user data (which includes appRoles and allowedTools from /me)
-      const meRes = await fetch("/api/auth/me")
-      if (meRes.ok) {
-        const meData = await meRes.json()
-        if (meData.success) {
-          setUser(meData.user)
+      // Set user data immediately from login response
+      if (data.user) {
+        setUser(data.user)
+      }
+
+      // Re-fetch user data with full app roles and allowed tools
+      try {
+        const meRes = await fetch("/api/auth/me")
+        console.log("[v0] /api/auth/me status:", meRes.status)
+        
+        if (meRes.ok) {
+          let meData
+          try {
+            meData = await meRes.json()
+          } catch (err) {
+            console.error("[v0] Failed to parse /api/auth/me as JSON:", err)
+            return // Use data from login response if /me fails
+          }
+          
+          if (meData.success && meData.user) {
+            console.log("[v0] Setting user from /api/auth/me:", meData.user)
+            setUser(meData.user)
+          }
         }
+      } catch (err) {
+        console.error("[v0] Error fetching /api/auth/me:", err)
+        // Continue with user from login response
       }
     },
     []
