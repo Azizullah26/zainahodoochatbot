@@ -9,7 +9,16 @@ import { ChatSuggestions } from "@/components/chat-suggestions"
 import { ChatInput } from "@/components/chat-input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
-const transport = new DefaultChatTransport({ api: "/api/chat" })
+// Custom fetch that includes credentials (cookies) for authentication
+const transport = new DefaultChatTransport({
+  api: "/api/chat",
+  fetch: (input, init) => {
+    return fetch(input, {
+      ...init,
+      credentials: "include", // Include cookies in requests
+    })
+  },
+})
 
 export function ChatContainer() {
   const { messages, sendMessage, status } = useChat({ transport })
