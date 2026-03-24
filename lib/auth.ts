@@ -27,10 +27,10 @@ export interface SessionPayload {
   uid: number
   username: string
   name: string
+  // Store only minimal roles to keep cookie under 4096 bytes
   roles: string[]
-  roleNames: string[]
   odooPassword: string
-  image?: string
+  // image and roleNames are NOT stored in cookie — fetched on demand
   iat: number
   exp: number
 }
@@ -63,14 +63,15 @@ export async function getSession(): Promise<SessionPayload | null> {
 }
 
 export async function createSession(user: OdooUser, password: string): Promise<void> {
+  // Keep cookie small: no image (base64), no roleNames — stay under browser's 4096 byte limit
+  // Roles are truncated to first 20 to further reduce size
+  const trimmedRoles = user.roles.slice(0, 20)
   const token = await createJwt(
     {
       uid: user.uid,
       username: user.username,
       name: user.name,
-      roles: user.roles,
-      roleNames: user.roleNames,
-      image: user.image,
+      roles: trimmedRoles,
       odooPassword: password,
     },
     SESSION_MAX_AGE
