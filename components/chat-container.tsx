@@ -22,16 +22,16 @@ const transport = new DefaultChatTransport({
 
 export function ChatContainer() {
   const { messages, sendMessage, status } = useChat({ transport })
-  const scrollRef = useRef<HTMLDivElement>(null)
+  const bottomRef = useRef<HTMLDivElement>(null)
+  const scrollAreaRef = useRef<HTMLDivElement>(null)
 
   const isLoading = status === "streaming" || status === "submitted"
   const hasMessages = messages.length > 0
 
+  // Scroll to bottom whenever messages change or streaming updates content
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-    }
-  }, [messages])
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [messages, status])
 
   const handleSend = (text: string) => {
     if (isLoading) return
@@ -46,8 +46,8 @@ export function ChatContainer() {
         {!hasMessages ? (
           <ChatSuggestions onSelect={handleSend} />
         ) : (
-          <ScrollArea className="flex-1">
-            <div ref={scrollRef} className="mx-auto max-w-3xl">
+          <div ref={scrollAreaRef} className="flex-1 overflow-y-auto">
+            <div className="mx-auto max-w-3xl">
               {messages.map((message) => (
                 <ChatMessage key={message.id} message={message} />
               ))}
@@ -66,8 +66,11 @@ export function ChatContainer() {
                     </div>
                   </div>
                 )}
+
+              {/* Invisible anchor element always at the bottom */}
+              <div ref={bottomRef} className="h-1" />
             </div>
-          </ScrollArea>
+          </div>
         )}
       </div>
 
