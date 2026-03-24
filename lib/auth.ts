@@ -129,6 +129,8 @@ async function fetchEmployeeImage(
   
   return undefined
 }
+
+export async function authenticateWithOdoo(
   username: string,
   password: string
 ): Promise<OdooUser> {
