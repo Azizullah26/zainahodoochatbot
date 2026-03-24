@@ -54,24 +54,29 @@ export async function getSession(): Promise<SessionPayload | null> {
   try {
     const store = await cookies()
     const token = store.get(SESSION_COOKIE)?.value
+    console.log("[v0] getSession: cookie =", !!token, "len =", token?.length ?? 0)
     if (!token) return null
-    return await parseJwt(token)
-  } catch {
+    const session = await parseJwt(token)
+    console.log("[v0] getSession: uid =", session?.uid ?? "null")
+    return session
+  } catch (err) {
+    console.log("[v0] getSession error:", err instanceof Error ? err.message : err)
     return null
   }
 }
 
 export async function createSession(uid: number, password: string): Promise<void> {
-  // Only store uid + password — keeps cookie well under 4096 bytes (~150 bytes total)
   const token = await createJwt({ uid, odooPassword: password }, SESSION_MAX_AGE)
+  console.log("[v0] createSession: token length =", token.length, "uid =", uid)
   const store = await cookies()
   store.set(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    sameSite: "lax",
     path: "/",
     maxAge: SESSION_MAX_AGE,
   })
+  console.log("[v0] createSession: cookie set, name =", SESSION_COOKIE)
 }
 
 export async function destroySession(): Promise<void> {

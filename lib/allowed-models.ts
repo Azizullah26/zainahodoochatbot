@@ -107,23 +107,16 @@ export function getAllowedModelsForRole(role: string): string[] {
  * NOTE: Odoo uses custom group IDs like "__export__res_groups_208" which won't
  * match any ALLOWED_MODELS key. Any authenticated user gets access to ALL models.
  */
-export function getAllowedModelsForRoles(roles: string[]): string[] {
-  // If user has any roles (i.e. is authenticated), give full access to all models
-  if (roles.length > 0) {
-    return ALL_ALLOWED_MODELS
-  }
-
-  // Unauthenticated — no access
-  return []
+// Any authenticated user gets access to all allowed models
+export function getAllowedModelsForRoles(_roles: string[]): string[] {
+  return ALL_ALLOWED_MODELS
 }
 
 /**
- * Validate if a model is allowed for a user's roles.
+ * Validate if a model is in the allowed models list.
  */
-export function isModelAllowed(model: string, roles: string[]): boolean {
-  // Any authenticated user (has roles) can access any allowed model
-  if (roles.length > 0 && ALL_ALLOWED_MODELS.includes(model)) return true
-  return false
+export function isModelAllowed(model: string, allowedModels: string[]): boolean {
+  return allowedModels.includes(model)
 }
 
 /**
