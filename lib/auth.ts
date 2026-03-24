@@ -27,10 +27,8 @@ export interface SessionPayload {
   uid: number
   username: string
   name: string
-  // Store only minimal roles to keep cookie under 4096 bytes
-  roles: string[]
   odooPassword: string
-  // image and roleNames are NOT stored in cookie — fetched on demand
+  // Roles are fetched on demand, not stored in cookie to stay under 4096 bytes
   iat: number
   exp: number
 }
@@ -48,8 +46,7 @@ async function parseJwt(token: string): Promise<SessionPayload | null> {
   try {
     const result = await verifyJwt<SessionPayload>(token, JWT_SECRET)
     return result?.payload ?? null
-  } catch (err) {
-    console.log("[v0] JWT verify failed:", err instanceof Error ? err.message : err)
+  } catch {
     return null
   }
 }
@@ -60,27 +57,20 @@ export async function getSession(): Promise<SessionPayload | null> {
   try {
     const store = await cookies()
     const token = store.get(SESSION_COOKIE)?.value
-    console.log("[v0] getSession: cookie found =", !!token, "cookie name =", SESSION_COOKIE)
     if (!token) return null
-    const session = await parseJwt(token)
-    console.log("[v0] getSession: parsed =", !!session)
-    return session
-  } catch (err) {
-    console.log("[v0] getSession error:", err instanceof Error ? err.message : err)
+    return await parseJwt(token)
+  } catch {
     return null
   }
 }
 
 export async function createSession(user: OdooUser, password: string): Promise<void> {
-  // Keep cookie small: no image (base64), no roleNames — stay under browser's 4096 byte limit
-  // Roles are truncated to first 20 to further reduce size
-  const trimmedRoles = user.roles.slice(0, 20)
+  // Minimal cookie: uid, username, name, password — no roles/image to stay under 4096 bytes
   const token = await createJwt(
     {
       uid: user.uid,
       username: user.username,
       name: user.name,
-      roles: trimmedRoles,
       odooPassword: password,
     },
     SESSION_MAX_AGE
@@ -244,6 +234,18 @@ export async function authenticateWithOdoo(
 }
 
 // ─── RBAC helpers ────────────────────────────────────────────────────
+
+/**
+ * Fetch user roles on demand (not stored in cookie to save space)
+ */
+export async function fetchRolesForSession(session: SessionPayload): Promise<string[]> {
+  try {
+    const groups = await fetchUserGroups(session.uid, session.odooPassword)
+    return groups.roles
+  } catch {
+    return []
+  }
+}
 
 export function resolveAppRoles(odooRoles: string[]): string[] {
   return odooRoles

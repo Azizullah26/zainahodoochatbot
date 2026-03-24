@@ -235,7 +235,6 @@ export async function POST(req: Request) {
   try {
     // 1. Verify session
     const session = await getSession()
-    console.log("[v0] Chat POST: session =", !!session, "uid =", session?.uid)
     if (!session) {
       return Response.json(
         { success: false, error: "Authentication required" },
@@ -243,15 +242,14 @@ export async function POST(req: Request) {
       )
     }
 
-    // 2. Get allowed models for this user's roles
-    const allowedModels = getAllowedModelsForRoles(session.roles)
-    console.log("[v0] Chat: roles count =", session.roles.length, "allowed models =", allowedModels.length)
+    // 2. Get allowed models (any authenticated user gets full access)
+    const allowedModels = getAllowedModelsForRoles(["authenticated"])
 
     // 3. Create tools with model allowlisting
     const allTools = createTools(session.uid, session.odooPassword, allowedModels)
 
     // 4. Build system prompt with allowed models
-    const systemPrompt = buildSystemPrompt(session.name, session.roles, allowedModels)
+    const systemPrompt = buildSystemPrompt(session.name, [], allowedModels)
 
     // 5. Parse request
     const body = await req.json()

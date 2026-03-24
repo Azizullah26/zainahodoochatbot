@@ -1,4 +1,4 @@
-import { getSession, resolveAppRoles, getAllowedTools } from "@/lib/auth"
+import { getSession, getAllowedTools } from "@/lib/auth"
 
 export async function GET() {
   const session = await getSession()
@@ -10,8 +10,8 @@ export async function GET() {
     )
   }
 
-  const appRoles = resolveAppRoles(session.roles)
-  const allowedTools = getAllowedTools(appRoles)
+  // Roles are not stored in cookie (too large) — any authenticated user gets full access
+  const allowedTools = getAllowedTools([])
 
   return Response.json({
     success: true,
@@ -19,8 +19,6 @@ export async function GET() {
       uid: session.uid,
       username: session.username,
       name: session.name,
-      roles: session.roles,
-      appRoles,
       allowedTools,
     },
   })
