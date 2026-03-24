@@ -9,19 +9,34 @@ import {
 import { z } from "zod"
 import { searchRead as jsonRpcSearchRead } from "@/lib/odoo/jsonrpc"
 import { searchRead as xmlRpcSearchRead } from "@/lib/odoo/xmlrpc"
+import { getSession, resolveAppRoles, getAllowedTools } from "@/lib/auth"
 
 export const maxDuration = 60
 
-const SYSTEM_PROMPT = `You are an AI assistant connected to a live Odoo ERP system.
+function buildSystemPrompt(userName: string, appRoles: string[], allowedTools: string[]): string {
+  const toolDescriptions: Record<string, string> = {
+    getProjects: "Fetch projects (project.project) - use getProjects",
+    getEmployees: "Fetch employees (hr.employee) - use getEmployees",
+    getTasks: "Fetch tasks (project.task) - use getTasks",
+    getPartners: "Fetch partners/contacts (res.partner) - use getPartners",
+    getTimesheets: "Fetch timesheets (account.analytic.line) - use getTimesheets",
+  }
+
+  const availableCapabilities = allowedTools
+    .map((t) => toolDescriptions[t])
+    .filter(Boolean)
+    .map((d) => `- ${d}`)
+    .join("\n")
+
+  return `You are an AI assistant connected to a live Odoo ERP system.
+The current user is "${userName}" with roles: ${appRoles.join(", ")}.
 You MUST use the available tools to fetch real data from Odoo. Do NOT make up or hallucinate any data.
 Always call the appropriate tool when data is requested.
 
-Available capabilities:
-- Fetch projects (project.project) — use getProjects
-- Fetch employees (hr.employee) — use getEmployees
-- Fetch tasks (project.task) — use getTasks
-- Fetch partners/contacts (res.partner) — use getPartners
-- Fetch timesheets (account.analytic.line) — use getTimesheets
+Available capabilities (based on this user's permissions):
+${availableCapabilities}
+
+IMPORTANT: If the user asks for data you do not have tools for, politely explain that they do not have permission to access that data with their current role.
 
 When presenting data:
 - Format results clearly with names, IDs, and relevant details
@@ -36,8 +51,9 @@ Filters you can apply:
 - Tasks: filter by project, name, assigned user
 - Partners: filter by name, ID, company status
 - Timesheets: filter by project, employee, date range`
+}
 
-const tools = {
+const allTools = {
   getProjects: tool({
     description:
       "Fetch projects from Odoo ERP. Use this when users ask about projects, active projects, project details, or project listings.",
@@ -77,11 +93,7 @@ const tools = {
           ],
           { limit: limit || 50, order: "name asc" }
         )
-        return {
-          success: true,
-          count: projects.length,
-          data: projects,
-        }
+        return { success: true, count: projects.length, data: projects }
       } catch (error) {
         return {
           success: false,
@@ -133,11 +145,7 @@ const tools = {
           ],
           { limit: limit || 50, order: "name asc" }
         )
-        return {
-          success: true,
-          count: employees.length,
-          data: employees,
-        }
+        return { success: true, count: employees.length, data: employees }
       } catch (error) {
         return {
           success: false,
@@ -187,11 +195,7 @@ const tools = {
           ],
           { limit: limit || 50, order: "priority desc, name asc" }
         )
-        return {
-          success: true,
-          count: tasks.length,
-          data: tasks,
-        }
+        return { success: true, count: tasks.length, data: tasks }
       } catch (error) {
         return {
           success: false,
@@ -242,11 +246,7 @@ const tools = {
           ],
           { limit: limit || 50, order: "name asc" }
         )
-        return {
-          success: true,
-          count: partners.length,
-          data: partners,
-        }
+        return { success: true, count: partners.length, data: partners }
       } catch (error) {
         return {
           success: false,
@@ -300,11 +300,7 @@ const tools = {
           ],
           { limit: limit || 50, order: "date desc" }
         )
-        return {
-          success: true,
-          count: timesheets.length,
-          data: timesheets,
-        }
+        return { success: true, count: timesheets.length, data: timesheets }
       } catch (error) {
         return {
           success: false,
@@ -319,18 +315,42 @@ const tools = {
 }
 
 export async function POST(req: Request) {
+  // 1. Verify session and extract user info
+  const session = await getSession()
+  if (!session) {
+    return Response.json(
+      { success: false, error: "Authentication required" },
+      { status: 401 }
+    )
+  }
+
+  // 2. Resolve roles and allowed tools
+  const appRoles = resolveAppRoles(session.roles)
+  const allowedToolNames = getAllowedTools(appRoles)
+
+  // 3. Filter tools based on user permissions
+  const userTools: Record<string, typeof allTools[keyof typeof allTools]> = {}
+  for (const toolName of allowedToolNames) {
+    if (toolName in allTools) {
+      userTools[toolName] = allTools[toolName as keyof typeof allTools]
+    }
+  }
+
+  // 4. Build role-aware system prompt
+  const systemPrompt = buildSystemPrompt(session.name, appRoles, allowedToolNames)
+
   const body = await req.json()
 
   const messages = await validateUIMessages<UIMessage>({
     messages: body.messages,
-    tools,
+    tools: userTools,
   })
 
   const result = streamText({
     model: "openai/gpt-5-mini",
-    system: SYSTEM_PROMPT,
+    system: systemPrompt,
     messages: await convertToModelMessages(messages),
-    tools,
+    tools: userTools,
     stopWhen: stepCountIs(10),
   })
 

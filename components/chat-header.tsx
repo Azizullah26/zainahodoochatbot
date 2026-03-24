@@ -1,9 +1,36 @@
-import { Database, Zap } from "lucide-react"
+"use client"
+
+import { useAuth } from "@/components/auth-provider"
+import { Database, LogOut, Shield, Zap } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase()
+}
+
+const roleLabelMap: Record<string, string> = {
+  admin: "Admin",
+  project_manager: "Project Manager",
+  hr: "HR",
+  staff: "Staff",
+}
 
 export function ChatHeader() {
+  const { user, logout } = useAuth()
+
+  const displayRoles = (user?.appRoles || [])
+    .map((r: string) => roleLabelMap[r] || r)
+    .slice(0, 2)
+
   return (
-    <header className="flex items-center justify-between border-b border-border bg-card px-6 py-4">
+    <header className="flex items-center justify-between border-b border-border bg-card px-6 py-3">
       <div className="flex items-center gap-3">
         <div className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
           <Database className="size-5" />
@@ -17,10 +44,45 @@ export function ChatHeader() {
           </p>
         </div>
       </div>
-      <Badge variant="outline" className="gap-1.5 text-xs">
-        <Zap className="size-3 text-chart-2" />
-        <span>Connected</span>
-      </Badge>
+
+      <div className="flex items-center gap-3">
+        <Badge variant="outline" className="gap-1.5 text-xs">
+          <Zap className="size-3 text-chart-2" />
+          <span>Connected</span>
+        </Badge>
+
+        {user && (
+          <div className="flex items-center gap-2">
+            <div className="hidden items-end gap-1.5 sm:flex sm:flex-col">
+              <span className="text-sm font-medium text-foreground leading-none">
+                {user.name}
+              </span>
+              <div className="flex items-center gap-1">
+                <Shield className="size-3 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">
+                  {displayRoles.join(", ")}
+                </span>
+              </div>
+            </div>
+
+            <Avatar className="size-8 border border-border">
+              <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                {getInitials(user.name)}
+              </AvatarFallback>
+            </Avatar>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={logout}
+              className="size-8 text-muted-foreground hover:text-foreground"
+              aria-label="Sign out"
+            >
+              <LogOut className="size-4" />
+            </Button>
+          </div>
+        )}
+      </div>
     </header>
   )
 }

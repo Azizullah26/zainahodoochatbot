@@ -1,4 +1,5 @@
 import { searchRead } from "@/lib/odoo/xmlrpc"
+import { requireRole } from "@/lib/route-guard"
 
 export const maxDuration = 30
 
@@ -12,6 +13,9 @@ const EMPLOYEE_FIELDS = [
 ]
 
 export async function GET(req: Request) {
+  const auth = await requireRole("admin", "hr")
+  if (!auth.authorized) return auth.response
+
   try {
     const { searchParams } = new URL(req.url)
     const name = searchParams.get("name")

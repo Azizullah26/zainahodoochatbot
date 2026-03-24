@@ -1,4 +1,5 @@
 import { searchRead } from "@/lib/odoo/jsonrpc"
+import { requireRole } from "@/lib/route-guard"
 
 export const maxDuration = 30
 
@@ -13,6 +14,9 @@ const PARTNER_FIELDS = [
 ]
 
 export async function GET(req: Request) {
+  const auth = await requireRole("admin")
+  if (!auth.authorized) return auth.response
+
   try {
     const { searchParams } = new URL(req.url)
     const name = searchParams.get("name")
