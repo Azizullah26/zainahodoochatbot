@@ -23,10 +23,16 @@ export async function POST(req: Request) {
     console.log("[v0] Authentication succeeded:", { uid: user.uid, username: user.username })
 
     console.log("[v0] Creating session for user:", user.username)
-    await createSession(user, sanitizedPassword)
-    console.log("[v0] Session created successfully")
+    try {
+      await createSession(user, sanitizedPassword)
+      console.log("[v0] Session created successfully")
+    } catch (sessionErr) {
+      console.error("[v0] Session creation error:", sessionErr)
+      throw sessionErr
+    }
 
-    return Response.json({
+    console.log("[v0] Building JSON response")
+    const responseBody = {
       success: true,
       user: {
         uid: user.uid,
@@ -35,15 +41,26 @@ export async function POST(req: Request) {
         roles: user.roles,
         roleNames: user.roleNames,
       },
-    })
+    }
+    console.log("[v0] Response body:", responseBody)
+
+    console.log("[v0] Creating Response.json")
+    const response = Response.json(responseBody)
+    console.log("[v0] Response created successfully")
+    return response
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Authentication failed"
     console.error("[v0] Login error:", message, error)
-    return Response.json(
-      { success: false, error: message },
-      { status: 401 }
-    )
+    try {
+      return Response.json(
+        { success: false, error: message },
+        { status: 401 }
+      )
+    } catch (responseErr) {
+      console.error("[v0] Failed to return error response:", responseErr)
+      throw responseErr
+    }
   }
 }
 

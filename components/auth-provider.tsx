@@ -66,13 +66,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
 
       console.log("[v0] Login response status:", res.status)
+      const responseText = await res.text()
+      console.log("[v0] Login response text:", responseText.slice(0, 200))
       
       let data
       try {
-        data = await res.json()
+        data = JSON.parse(responseText)
       } catch (err) {
-        console.error("[v0] Failed to parse login response as JSON:", err)
-        throw new Error("Login failed: Invalid response from server")
+        console.error("[v0] Failed to parse login response as JSON")
+        console.error("[v0] Response text:", responseText.slice(0, 500))
+        throw new Error(`Login failed: Server returned ${res.status} - ${responseText.slice(0, 100)}`)
       }
       
       console.log("[v0] Login response:", data)
