@@ -1,4 +1,5 @@
 import { authenticateWithOdoo, createSession } from "@/lib/auth"
+import { NextResponse } from "next/server"
 
 export async function POST(req: Request) {
   try {
@@ -6,42 +7,34 @@ export async function POST(req: Request) {
     const { username, password } = body
 
     if (!username || !password) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Username and password required" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
+      return NextResponse.json(
+        { success: false, error: "Username and password required" },
+        { status: 400 }
       )
     }
 
     const user = await authenticateWithOdoo(username, password)
-    
-    try {
-      await createSession(user, password)
-    } catch (sessionErr) {
-      console.error("[v0] Session creation failed:", sessionErr)
-      throw new Error("Failed to create session")
-    }
+    await createSession(user, password)
 
-    const responseBody = {
-      success: true,
-      user: {
-        uid: user.uid,
-        username: user.username,
-        name: user.name,
-        roles: user.roles,
-        roleNames: user.roleNames,
+    return NextResponse.json(
+      {
+        success: true,
+        user: {
+          uid: user.uid,
+          username: user.username,
+          name: user.name,
+          roles: user.roles,
+          roleNames: user.roleNames,
+        },
       },
-    }
-
-    return new Response(JSON.stringify(responseBody), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    })
+      { status: 200 }
+    )
   } catch (error) {
     const message = error instanceof Error ? error.message : "Authentication failed"
-    return new Response(JSON.stringify({ success: false, error: message }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" },
-    })
+    return NextResponse.json(
+      { success: false, error: message },
+      { status: 401 }
+    )
   }
 }
 
