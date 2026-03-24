@@ -277,47 +277,56 @@ function createTools(uid: number, password: string) {
 }
 
 export async function POST(req: Request) {
-  // 1. Verify session -- no Odoo calls happen without auth
-  const session = await getSession()
-  if (!session) {
+  try {
+    // 1. Verify session -- no Odoo calls happen without auth
+    const session = await getSession()
+    if (!session) {
+      return Response.json(
+        { success: false, error: "Authentication required" },
+        { status: 401 }
+      )
+    }
+
+    // 2. Resolve roles and allowed tools
+    const appRoles = resolveAppRoles(session.roles)
+    const allowedToolNames = getAllowedTools(appRoles)
+
+    // 3. Create tools bound to this user's credentials
+    const allTools = createTools(session.uid, session.odooPassword)
+
+    // 4. Filter tools based on user permissions
+    const userTools: Record<string, (typeof allTools)[keyof typeof allTools]> = {}
+    for (const toolName of allowedToolNames) {
+      if (toolName in allTools) {
+        userTools[toolName] = allTools[toolName as keyof typeof allTools]
+      }
+    }
+
+    // 5. Build role-aware system prompt
+    const systemPrompt = buildSystemPrompt(session.name, appRoles, allowedToolNames)
+
+    const body = await req.json()
+
+    const messages = await validateUIMessages<UIMessage>({
+      messages: body.messages,
+      tools: userTools,
+    })
+
+    const result = streamText({
+      model: "openai/gpt-5-mini",
+      system: systemPrompt,
+      messages: await convertToModelMessages(messages),
+      tools: userTools,
+      stopWhen: stepCountIs(10),
+    })
+
+    return result.toUIMessageStreamResponse()
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Chat request failed"
+    console.error("[v0] Chat route error:", message, error)
     return Response.json(
-      { success: false, error: "Authentication required" },
-      { status: 401 }
+      { success: false, error: message },
+      { status: 500 }
     )
   }
-
-  // 2. Resolve roles and allowed tools
-  const appRoles = resolveAppRoles(session.roles)
-  const allowedToolNames = getAllowedTools(appRoles)
-
-  // 3. Create tools bound to this user's credentials
-  const allTools = createTools(session.uid, session.odooPassword)
-
-  // 4. Filter tools based on user permissions
-  const userTools: Record<string, (typeof allTools)[keyof typeof allTools]> = {}
-  for (const toolName of allowedToolNames) {
-    if (toolName in allTools) {
-      userTools[toolName] = allTools[toolName as keyof typeof allTools]
-    }
-  }
-
-  // 5. Build role-aware system prompt
-  const systemPrompt = buildSystemPrompt(session.name, appRoles, allowedToolNames)
-
-  const body = await req.json()
-
-  const messages = await validateUIMessages<UIMessage>({
-    messages: body.messages,
-    tools: userTools,
-  })
-
-  const result = streamText({
-    model: "openai/gpt-5-mini",
-    system: systemPrompt,
-    messages: await convertToModelMessages(messages),
-    tools: userTools,
-    stopWhen: stepCountIs(10),
-  })
-
-  return result.toUIMessageStreamResponse()
 }
