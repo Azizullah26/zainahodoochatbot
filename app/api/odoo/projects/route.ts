@@ -28,7 +28,7 @@ export async function GET(req: Request) {
     if (activeOnly) domain.push(["active", "=", true])
     if (name) domain.push(["name", "ilike", name])
 
-    const projects = await searchRead("project.project", domain, PROJECT_FIELDS, {
+    const projects = await searchRead(auth.uid, auth.password, "project.project", domain, PROJECT_FIELDS, {
       limit,
       offset,
       order: "name asc",
@@ -36,8 +36,7 @@ export async function GET(req: Request) {
 
     return Response.json({ success: true, count: projects.length, data: projects })
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to fetch projects"
+    const message = error instanceof Error ? error.message : "Failed to fetch projects"
     return Response.json({ success: false, error: message }, { status: 500 })
   }
 }

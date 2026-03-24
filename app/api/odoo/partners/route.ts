@@ -32,7 +32,7 @@ export async function GET(req: Request) {
       domain.push(["is_company", "=", isCompany === "true"])
     }
 
-    const partners = await searchRead("res.partner", domain, PARTNER_FIELDS, {
+    const partners = await searchRead(auth.uid, auth.password, "res.partner", domain, PARTNER_FIELDS, {
       limit,
       offset,
       order: "name asc",
@@ -40,8 +40,7 @@ export async function GET(req: Request) {
 
     return Response.json({ success: true, count: partners.length, data: partners })
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to fetch partners"
+    const message = error instanceof Error ? error.message : "Failed to fetch partners"
     return Response.json({ success: false, error: message }, { status: 500 })
   }
 }

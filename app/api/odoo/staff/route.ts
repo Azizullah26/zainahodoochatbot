@@ -29,7 +29,7 @@ export async function GET(req: Request) {
     if (id) domain.push(["id", "=", parseInt(id, 10)])
     if (department) domain.push(["department_id.name", "ilike", department])
 
-    const employees = await searchRead("hr.employee", domain, EMPLOYEE_FIELDS, {
+    const employees = await searchRead(auth.uid, auth.password, "hr.employee", domain, EMPLOYEE_FIELDS, {
       limit,
       offset,
       order: "name asc",
@@ -37,8 +37,7 @@ export async function GET(req: Request) {
 
     return Response.json({ success: true, count: employees.length, data: employees })
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to fetch employees"
+    const message = error instanceof Error ? error.message : "Failed to fetch employees"
     return Response.json({ success: false, error: message }, { status: 500 })
   }
 }

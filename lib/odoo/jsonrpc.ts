@@ -1,11 +1,5 @@
 const ODOO_URL = process.env.ODOO_URL!
 const ODOO_DB = process.env.ODOO_DB!
-const ODOO_USERNAME = process.env.ODOO_USERNAME!
-const ODOO_PASSWORD = process.env.ODOO_PASSWORD!
-
-let cachedUid: number | null = null
-let cachedUidExpiry = 0
-const CACHE_TTL = 1000 * 60 * 30 // 30 minutes
 
 interface JsonRpcResponse {
   jsonrpc: string
@@ -18,10 +12,16 @@ interface JsonRpcResponse {
   }
 }
 
+/**
+ * Low-level JSON-RPC call to Odoo.
+ * All calls require explicit credentials (uid + password).
+ * No Odoo calls happen without an authenticated user.
+ */
 async function jsonRpcCall(
   url: string,
+  service: string,
   method: string,
-  params: Record<string, unknown>,
+  args: unknown[],
   retries = 3
 ): Promise<unknown> {
   const body = {
@@ -29,9 +29,9 @@ async function jsonRpcCall(
     method: "call",
     id: Date.now(),
     params: {
-      service: method.split(".")[0],
-      method: method.split(".").slice(1).join("."),
-      args: params.args || [],
+      service,
+      method,
+      args,
     },
   }
 
@@ -56,9 +56,12 @@ async function jsonRpcCall(
       const data: JsonRpcResponse = await response.json()
 
       if (data.error) {
-        throw new Error(
-          data.error.data?.message || data.error.message || "JSON-RPC error"
-        )
+        const errMsg = data.error.data?.message || data.error.message || "JSON-RPC error"
+        // If auth error, do not retry
+        if (errMsg.includes("Access Denied") || errMsg.includes("Session expired")) {
+          throw new Error(`Odoo auth error: ${errMsg}`)
+        }
+        throw new Error(errMsg)
       }
 
       return data.result
@@ -71,39 +74,34 @@ async function jsonRpcCall(
   }
 }
 
-export async function authenticate(): Promise<number> {
-  const now = Date.now()
-  if (cachedUid && now < cachedUidExpiry) {
-    return cachedUid
-  }
-
-  const uid = (await jsonRpcCall(`${ODOO_URL}/jsonrpc`, "common.login", {
-    args: [ODOO_DB, ODOO_USERNAME, ODOO_PASSWORD],
-  })) as number
-
-  if (!uid || uid === false) {
-    throw new Error("Authentication failed: invalid credentials")
-  }
-
-  cachedUid = uid
-  cachedUidExpiry = now + CACHE_TTL
-  return uid
-}
-
+/**
+ * Execute an Odoo model method using the authenticated user's credentials.
+ * @param uid - The logged-in user's Odoo user ID (from session)
+ * @param password - The logged-in user's Odoo password (from session)
+ */
 export async function executeKw(
+  uid: number,
+  password: string,
   model: string,
   method: string,
   args: unknown[],
   kwargs: Record<string, unknown> = {}
 ): Promise<unknown> {
-  const uid = await authenticate()
-
-  return jsonRpcCall(`${ODOO_URL}/jsonrpc`, "object.execute_kw", {
-    args: [ODOO_DB, uid, ODOO_PASSWORD, model, method, args, kwargs],
-  })
+  return jsonRpcCall(
+    `${ODOO_URL}/jsonrpc`,
+    "object",
+    "execute_kw",
+    [ODOO_DB, uid, password, model, method, args, kwargs]
+  )
 }
 
+/**
+ * Search and read records from an Odoo model.
+ * Requires explicit user credentials -- Odoo is never called without auth.
+ */
 export async function searchRead(
+  uid: number,
+  password: string,
   model: string,
   domain: unknown[][] = [],
   fields: string[] = [],
@@ -115,6 +113,6 @@ export async function searchRead(
   if (options.offset) kwargs.offset = options.offset
   if (options.order) kwargs.order = options.order
 
-  const result = await executeKw(model, "search_read", [domain], kwargs)
+  const result = await executeKw(uid, password, model, "search_read", [domain], kwargs)
   return (result as Record<string, unknown>[]) || []
 }

@@ -33,20 +33,17 @@ export async function GET(req: Request) {
     if (dateTo) domain.push(["date", "<=", dateTo])
 
     const timesheets = await searchRead(
+      auth.uid,
+      auth.password,
       "account.analytic.line",
       domain,
       TIMESHEET_FIELDS,
       { limit, offset, order: "date desc" }
     )
 
-    return Response.json({
-      success: true,
-      count: timesheets.length,
-      data: timesheets,
-    })
+    return Response.json({ success: true, count: timesheets.length, data: timesheets })
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to fetch timesheets"
+    const message = error instanceof Error ? error.message : "Failed to fetch timesheets"
     return Response.json({ success: false, error: message }, { status: 500 })
   }
 }

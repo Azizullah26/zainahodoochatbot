@@ -31,7 +31,7 @@ export async function GET(req: Request) {
     if (name) domain.push(["name", "ilike", name])
     if (userId) domain.push(["user_ids", "in", [parseInt(userId, 10)]])
 
-    const tasks = await searchRead("project.task", domain, TASK_FIELDS, {
+    const tasks = await searchRead(auth.uid, auth.password, "project.task", domain, TASK_FIELDS, {
       limit,
       offset,
       order: "priority desc, name asc",
@@ -39,8 +39,7 @@ export async function GET(req: Request) {
 
     return Response.json({ success: true, count: tasks.length, data: tasks })
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to fetch tasks"
+    const message = error instanceof Error ? error.message : "Failed to fetch tasks"
     return Response.json({ success: false, error: message }, { status: 500 })
   }
 }

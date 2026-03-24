@@ -1,11 +1,5 @@
 const ODOO_URL = process.env.ODOO_URL!
 const ODOO_DB = process.env.ODOO_DB!
-const ODOO_USERNAME = process.env.ODOO_USERNAME!
-const ODOO_PASSWORD = process.env.ODOO_PASSWORD!
-
-let cachedUid: number | null = null
-let cachedUidExpiry = 0
-const CACHE_TTL = 1000 * 60 * 30 // 30 minutes
 
 function buildXmlRpcRequest(
   method: string,
@@ -94,7 +88,6 @@ function parseXmlValue(xml: string): unknown {
     return obj
   }
 
-  // bare value (no type tag) is treated as string
   const bareValue = xml.match(/<value>([\s\S]*?)<\/value>/)
   if (bareValue) {
     const inner = bareValue[1].trim()
@@ -164,40 +157,23 @@ async function xmlRpcCall(
   }
 }
 
-export async function authenticate(): Promise<number> {
-  const now = Date.now()
-  if (cachedUid && now < cachedUidExpiry) {
-    return cachedUid
-  }
-
-  const uid = (await xmlRpcCall("/xmlrpc/2/common", "authenticate", [
-    ODOO_DB,
-    ODOO_USERNAME,
-    ODOO_PASSWORD,
-    {},
-  ])) as number
-
-  if (!uid || uid === false) {
-    throw new Error("XML-RPC authentication failed: invalid credentials")
-  }
-
-  cachedUid = uid
-  cachedUidExpiry = now + CACHE_TTL
-  return uid
-}
-
+/**
+ * Execute an Odoo model method via XML-RPC using the authenticated user's credentials.
+ * @param uid - The logged-in user's Odoo user ID (from session)
+ * @param password - The logged-in user's Odoo password (from session)
+ */
 export async function executeKw(
+  uid: number,
+  password: string,
   model: string,
   method: string,
   args: unknown[],
   kwargs: Record<string, unknown> = {}
 ): Promise<unknown> {
-  const uid = await authenticate()
-
   return xmlRpcCall("/xmlrpc/2/object", "execute_kw", [
     ODOO_DB,
     uid,
-    ODOO_PASSWORD,
+    password,
     model,
     method,
     args,
@@ -205,7 +181,13 @@ export async function executeKw(
   ])
 }
 
+/**
+ * Search and read records via XML-RPC.
+ * Requires explicit user credentials -- Odoo is never called without auth.
+ */
 export async function searchRead(
+  uid: number,
+  password: string,
   model: string,
   domain: unknown[][] = [],
   fields: string[] = [],
@@ -217,6 +199,6 @@ export async function searchRead(
   if (options.offset) kwargs.offset = options.offset
   if (options.order) kwargs.order = options.order
 
-  const result = await executeKw(model, "search_read", [domain], kwargs)
+  const result = await executeKw(uid, password, model, "search_read", [domain], kwargs)
   return (result as Record<string, unknown>[]) || []
 }
