@@ -93,6 +93,11 @@ export async function createSession(user: OdooUser, password: string): Promise<v
   })
 }
 
+export async function destroySession(): Promise<void> {
+  const cookieStore = await cookies()
+  cookieStore.delete(SESSION_COOKIE)
+}
+
 export async function logout(): Promise<void> {
   const cookieStore = await cookies()
   cookieStore.delete(SESSION_COOKIE)
@@ -102,9 +107,7 @@ export async function logout(): Promise<void> {
 
 async function fetchEmployeeImage(uid: number, password: string): Promise<string | undefined> {
   try {
-    const url = `${ODOO_URL}/jsonrpc`
-
-    const response = await fetch(url, {
+    const response = await fetch(`${ODOO_URL}/jsonrpc`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -145,63 +148,68 @@ export async function authenticateWithOdoo(username: string, password: string): 
   if (!ODOO_URL) throw new Error("ODOO_URL environment variable is not set")
   if (!ODOO_DB) throw new Error("ODOO_DB environment variable is not set")
 
-  // Try the correct endpoint: /web/session/authenticate
   const url = `${ODOO_URL}/web/session/authenticate`
 
-  console.log("[v0] Attempting Odoo authentication at:", url)
-  console.log("[v0] Database:", ODOO_DB)
-  console.log("[v0] Username:", username)
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      method: "call",
+      params: {
+        db: ODOO_DB,
+        login: username,
+        password: password,
+      },
+    }),
+    signal: AbortSignal.timeout(15000),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Odoo returned HTTP ${response.status}`)
+  }
+
+  const data = await response.json()
+
+  if (data.error) {
+    throw new Error(data.error.data?.message || data.error.message || "Authentication failed")
+  }
+
+  const result = data.result
+  if (!result || !result.uid) {
+    throw new Error("Invalid credentials")
+  }
+
+  const uid: number = result.uid
+  const name: string = result.name || username
+
+  // Fetch user groups for RBAC
+  let roles: string[] = []
+  let roleNames: string[] = []
+  let image: string | undefined
 
   try {
-    const response = await fetch(url, {
+    const groupsRes = await fetch(`${ODOO_URL}/jsonrpc`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         jsonrpc: "2.0",
         method: "call",
+        id: Math.random(),
         params: {
-          db: ODOO_DB,
-          login: username,
-          password: password,
+          service: "object",
+          method: "execute_kw",
+          args: [ODOO_DB, uid, password, "res.users", "read", [[uid]], { fields: ["groups_id"] }],
         },
       }),
       signal: AbortSignal.timeout(15000),
     })
 
-    if (!response.ok) {
-      console.error("[v0] Odoo HTTP error:", response.status, response.statusText)
-      throw new Error(`Odoo returned HTTP ${response.status}`)
-    }
+    const groupsData = await groupsRes.json()
+    const groupIds: number[] = groupsData.result?.[0]?.groups_id || []
 
-    const data = await response.json()
-    console.log("[v0] Odoo response:", data)
-
-    // Check for JSON-RPC error
-    if (data.error) {
-      console.error("[v0] Odoo JSON-RPC error:", data.error)
-      throw new Error(data.error.message || "Authentication failed")
-    }
-
-    // Extract result - should contain uid and other user data
-    const result = data.result
-    if (!result || !result.uid) {
-      console.error("[v0] Invalid authentication response from Odoo")
-      throw new Error("Invalid authentication response from Odoo")
-    }
-
-    const uid = result.uid
-    const name = result.name || username
-
-    console.log("[v0] Authentication successful, uid:", uid)
-
-    // Fetch user groups for RBAC and employee image
-    let roles: string[] = []
-    let roleNames: string[] = []
-    let image: string | undefined
-
-    try {
-      const groupsUrl = `${ODOO_URL}/jsonrpc`
-      const groupsRes = await fetch(groupsUrl, {
+    if (groupIds.length > 0) {
+      const xmlIdRes = await fetch(`${ODOO_URL}/jsonrpc`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -211,149 +219,34 @@ export async function authenticateWithOdoo(username: string, password: string): 
           params: {
             service: "object",
             method: "execute_kw",
-            args: [ODOO_DB, uid, password, "res.users", "read", [[uid]], { fields: ["groups_id"] }],
+            args: [
+              ODOO_DB,
+              uid,
+              password,
+              "ir.model.data",
+              "search_read",
+              [[["model", "=", "res.groups"], ["res_id", "in", groupIds]]],
+              { fields: ["complete_name", "module", "name"], limit: 200 },
+            ],
           },
         }),
         signal: AbortSignal.timeout(15000),
       })
 
-      const groupsData = await groupsRes.json()
-      const userRecord = groupsData.result?.[0]
-      const groupIds: number[] = userRecord?.groups_id || []
+      const xmlIdData = await xmlIdRes.json()
+      const groupRecords = xmlIdData.result || []
 
-      if (groupIds.length > 0) {
-        const xmlIdRes = await fetch(groupsUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            jsonrpc: "2.0",
-            method: "call",
-            id: Math.random(),
-            params: {
-              service: "object",
-              method: "execute_kw",
-              args: [
-                ODOO_DB,
-                uid,
-                password,
-                "ir.model.data",
-                "search_read",
-                [[["model", "=", "res.groups"], ["res_id", "in", groupIds]]],
-                { fields: ["complete_name", "module", "name"], limit: 200 },
-              ],
-            },
-          }),
-          signal: AbortSignal.timeout(15000),
-        })
-
-        const xmlIdData = await xmlIdRes.json()
-        const groupRecords = xmlIdData.result || []
-
-        roles = groupRecords.map((g: { module: string; name: string }) => `${g.module}.${g.name}`)
-        roleNames = groupRecords.map((g: { complete_name: string }) => g.complete_name).filter(Boolean)
-      }
-
-      // Fetch employee profile image
-      image = await fetchEmployeeImage(uid, password)
-    } catch (err) {
-      console.warn("[v0] Failed to fetch Odoo groups/image:", err instanceof Error ? err.message : err)
+      roles = groupRecords.map((g: { module: string; name: string }) => `${g.module}.${g.name}`)
+      roleNames = groupRecords.map((g: { complete_name: string }) => g.complete_name).filter(Boolean)
     }
 
-    return { uid, username, name, roles, roleNames, image }
+    image = await fetchEmployeeImage(uid, password)
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    console.error("[v0] Odoo authentication error:", message)
-    throw err
+    console.warn("[v0] Failed to fetch groups/image:", err instanceof Error ? err.message : err)
   }
+
+  return { uid, username, name, roles, roleNames, image }
 }
-
-      // Fetch employee profile image
-      image = await fetchEmployeeImage(uid, password)
-    } catch (err) {
-      console.warn("[v0] Failed to fetch Odoo groups/image:", err instanceof Error ? err.message : err)
-    }
-
-    return { uid, username, name, roles, roleNames, image }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    console.error("[v0] Odoo authentication error:", message)
-    throw err
-  }
-}
-
-    const data = await response.json()
-
-    if (data.error) {
-      throw new Error(data.error.message || "Authentication failed")
-    }
-
-    const result = data.result
-    if (!result || !result.uid) {
-      throw new Error("Invalid authentication response from Odoo")
-    }
-
-    const uid = result.uid
-    const name = result.name || username
-
-    console.log("[v0] Authentication successful, uid:", uid)
-
-    let roles: string[] = []
-    let roleNames: string[] = []
-    let image: string | undefined
-
-    try {
-      const groupsUrl = `${ODOO_URL}/jsonrpc`
-      const groupsRes = await fetch(groupsUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          method: "call",
-          id: Math.random(),
-          params: {
-            service: "object",
-            method: "execute_kw",
-            args: [ODOO_DB, uid, password, "res.users", "read", [[uid]], { fields: ["groups_id"] }],
-          },
-        }),
-        signal: AbortSignal.timeout(15000),
-      })
-
-      const groupsData = await groupsRes.json()
-      const userRecord = groupsData.result?.[0]
-      const groupIds: number[] = userRecord?.groups_id || []
-
-      if (groupIds.length > 0) {
-        const xmlIdRes = await fetch(groupsUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            jsonrpc: "2.0",
-            method: "call",
-            id: Math.random(),
-            params: {
-              service: "object",
-              method: "execute_kw",
-              args: [
-                ODOO_DB,
-                uid,
-                password,
-                "ir.model.data",
-                "search_read",
-                [[["model", "=", "res.groups"], ["res_id", "in", groupIds]]],
-                { fields: ["complete_name", "module", "name"], limit: 200 },
-              ],
-            },
-          }),
-          signal: AbortSignal.timeout(15000),
-        })
-
-        const xmlIdData = await xmlIdRes.json()
-        const groupRecords = xmlIdData.result || []
-
-        roles = groupRecords.map((g: { module: string; name: string }) => `${g.module}.${g.name}`)
-        roleNames = groupRecords.map((g: { complete_name: string }) => g.complete_name).filter(Boolean)
-      }
 
 // ─── Role-Based Access Control ──────────────────────────────────────
 
@@ -364,9 +257,3 @@ export function resolveAppRoles(odooRoles: string[]): string[] {
 export function getAllowedTools(appRoles: string[]): string[] {
   return ["search_read", "read_group", "name_search", "calculator"]
 }
-
-export async function destroySession(): Promise<void> {
-  const cookieStore = await cookies()
-  cookieStore.delete(SESSION_COOKIE)
-}
-
