@@ -219,8 +219,8 @@ export async function createSession(user: OdooUser, password: string): Promise<v
   const cookieStore = await cookies()
   cookieStore.set(SESSION_COOKIE, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    secure: true, // Always secure on Vercel
+    sameSite: "strict", // Prevent CSRF
     path: "/",
     maxAge: SESSION_MAX_AGE,
   })
