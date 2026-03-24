@@ -267,6 +267,20 @@ export async function authenticateWithOdoo(username: string, password: string): 
   }
 }
 
+      // Fetch employee profile image
+      image = await fetchEmployeeImage(uid, password)
+    } catch (err) {
+      console.warn("[v0] Failed to fetch Odoo groups/image:", err instanceof Error ? err.message : err)
+    }
+
+    return { uid, username, name, roles, roleNames, image }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error("[v0] Odoo authentication error:", message)
+    throw err
+  }
+}
+
     const data = await response.json()
 
     if (data.error) {
