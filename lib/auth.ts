@@ -1,24 +1,12 @@
-import { signJwt, verifyJwt } from "@/lib/jwt"
 import { cookies } from "next/headers"
+import { jwtVerify, SignJWT } from "jose"
 
-// Normalize URL: strip trailing slashes AND any path segments to get base domain
-function normalizeUrl(url: string): string {
-  try {
-    const urlObj = new URL(url)
-    return `${urlObj.protocol}//${urlObj.hostname}${urlObj.port ? `:${urlObj.port}` : ""}`
-  } catch {
-    return url.replace(/\/+$/, "").replace(/\/[a-z].*$/, "")
-  }
-}
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "dev-secret-key")
+const SESSION_COOKIE = "session"
+const SESSION_MAX_AGE = 86400 * 30 // 30 days
 
-const ODOO_URL = normalizeUrl(process.env.ODOO_URL || "")
-const ODOO_DB = process.env.ODOO_DB || ""
-
-// JWT secret derived from ODOO env vars for zero-config
-const JWT_SECRET_RAW = process.env.JWT_SECRET || `${ODOO_URL}-${ODOO_DB}-odoo-erp-assistant`
-const JWT_SECRET = new TextEncoder().encode(JWT_SECRET_RAW)
-const SESSION_COOKIE = "odoo_session"
-const SESSION_MAX_AGE = 60 * 60 * 8 // 8 hours
+const ODOO_URL = process.env.ODOO_URL
+const ODOO_DB = process.env.ODOO_DB
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -28,7 +16,7 @@ export interface OdooUser {
   name: string
   roles: string[]
   roleNames: string[]
-  image?: string // Base64 or data URL
+  image?: string
 }
 
 export interface SessionPayload {
@@ -43,56 +31,79 @@ export interface SessionPayload {
   exp: number
 }
 
-// ─── Role definitions ───────────────────────────────────────────────
+// ─── JWT Functions ──────────────────────────────────────────────────
 
-export type AppRole = "admin" | "project_manager" | "hr" | "staff"
-
-const ROLE_MAP: Record<string, AppRole> = {
-  "base.group_system": "admin",
-  "base.group_erp_manager": "admin",
-  "project.group_project_manager": "project_manager",
-  "project.group_project_user": "project_manager",
-  "hr.group_hr_manager": "hr",
-  "hr.group_hr_user": "hr",
-  "base.group_user": "staff",
+async function signJwt(
+  payload: Omit<SessionPayload, "iat" | "exp">,
+  secret: Uint8Array,
+  expiresIn: number
+): Promise<string> {
+  const now = Math.floor(Date.now() / 1000)
+  return new SignJWT(payload)
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt(now)
+    .setExpirationTime(now + expiresIn)
+    .sign(secret)
 }
 
-const ROLE_TOOL_ACCESS: Record<AppRole, string[]> = {
-  admin: ["getProjects", "getEmployees", "getTasks", "getPartners", "getTimesheets"],
-  project_manager: ["getProjects", "getTasks", "getTimesheets"],
-  hr: ["getEmployees"],
-  staff: ["getProjects", "getTasks"],
-}
-
-export function resolveAppRoles(odooGroupXmlIds: string[]): AppRole[] {
-  const roles = new Set<AppRole>()
-  for (const xmlId of odooGroupXmlIds) {
-    const mapped = ROLE_MAP[xmlId]
-    if (mapped) roles.add(mapped)
+async function verifyJwt(token: string, secret: Uint8Array): Promise<SessionPayload | null> {
+  try {
+    const verified = await jwtVerify(token, secret)
+    return verified.payload as SessionPayload
+  } catch {
+    return null
   }
-  if (roles.size === 0) roles.add("staff")
-  return Array.from(roles)
 }
 
-export function getAllowedTools(appRoles: AppRole[]): string[] {
-  const tools = new Set<string>()
-  for (const role of appRoles) {
-    const access = ROLE_TOOL_ACCESS[role]
-    if (access) access.forEach((t) => tools.add(t))
+// ─── Session Management ─────────────────────────────────────────────
+
+export async function getSession(): Promise<SessionPayload | null> {
+  try {
+    const cookieStore = await cookies()
+    const token = cookieStore.get(SESSION_COOKIE)?.value
+    if (!token) return null
+    return await verifyJwt(token, JWT_SECRET)
+  } catch {
+    return null
   }
-  return Array.from(tools)
+}
+
+export async function createSession(user: OdooUser, password: string): Promise<void> {
+  const token = await signJwt(
+    {
+      uid: user.uid,
+      username: user.username,
+      name: user.name,
+      roles: user.roles,
+      roleNames: user.roleNames,
+      image: user.image,
+      odooPassword: password,
+    },
+    JWT_SECRET,
+    SESSION_MAX_AGE
+  )
+
+  const cookieStore = await cookies()
+  cookieStore.set(SESSION_COOKIE, token, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: SESSION_MAX_AGE,
+  })
+}
+
+export async function logout(): Promise<void> {
+  const cookieStore = await cookies()
+  cookieStore.delete(SESSION_COOKIE)
 }
 
 // ─── Odoo Authentication ────────────────────────────────────────────
-// Model detection and data fetching system
 
-async function fetchEmployeeImage(
-  uid: number,
-  password: string
-): Promise<string | undefined> {
+async function fetchEmployeeImage(uid: number, password: string): Promise<string | undefined> {
   try {
     const url = `${ODOO_URL}/jsonrpc`
-    
+
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -119,26 +130,21 @@ async function fetchEmployeeImage(
 
     const data = await response.json()
     const employees = data.result || []
-    
+
     if (employees.length > 0 && employees[0].image_1920) {
-      // Convert base64 to data URL
       return `data:image/png;base64,${employees[0].image_1920}`
     }
   } catch (err) {
     console.warn("[v0] Failed to fetch employee image:", err instanceof Error ? err.message : err)
   }
-  
+
   return undefined
 }
 
-export async function authenticateWithOdoo(
-  username: string,
-  password: string
-): Promise<OdooUser> {
+export async function authenticateWithOdoo(username: string, password: string): Promise<OdooUser> {
   if (!ODOO_URL) throw new Error("ODOO_URL environment variable is not set")
   if (!ODOO_DB) throw new Error("ODOO_DB environment variable is not set")
 
-  // Use the correct Odoo endpoint: /web/session/authenticate
   const url = `${ODOO_URL}/web/session/authenticate`
 
   try {
@@ -163,12 +169,10 @@ export async function authenticateWithOdoo(
 
     const data = await response.json()
 
-    // Check for JSON-RPC error
     if (data.error) {
       throw new Error(data.error.message || "Authentication failed")
     }
 
-    // Extract result - should contain uid and other user data
     const result = data.result
     if (!result || !result.uid) {
       throw new Error("Invalid authentication response from Odoo")
@@ -179,7 +183,6 @@ export async function authenticateWithOdoo(
 
     console.log("[v0] Authentication successful, uid:", uid)
 
-    // Fetch user groups for RBAC and employee image
     let roles: string[] = []
     let roleNames: string[] = []
     let image: string | undefined
@@ -237,11 +240,10 @@ export async function authenticateWithOdoo(
         roles = groupRecords.map((g: { module: string; name: string }) => `${g.module}.${g.name}`)
         roleNames = groupRecords.map((g: { complete_name: string }) => g.complete_name).filter(Boolean)
       }
-      
-      // Fetch employee profile image
+
       image = await fetchEmployeeImage(uid, password)
     } catch (err) {
-      console.warn("[v0] Failed to fetch Odoo groups/image, defaulting to staff role")
+      console.warn("[v0] Failed to fetch Odoo groups/image")
     }
 
     return { uid, username, name, roles, roleNames, image }
@@ -252,48 +254,12 @@ export async function authenticateWithOdoo(
   }
 }
 
-// ─── Session Management (JWT + HTTP-only cookies) ───────────────────
+// ─── Role-Based Access Control ──────────────────────────────────────
 
-export async function createSession(user: OdooUser, password: string): Promise<void> {
-  const token = await signJwt(
-    {
-      uid: user.uid,
-      username: user.username,
-      name: user.name,
-      roles: user.roles,
-      roleNames: user.roleNames,
-      image: user.image,
-      odooPassword: password,
-    },
-    JWT_SECRET,
-    SESSION_MAX_AGE
-  )
-
-  const cookieStore = await cookies()
-  cookieStore.set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: SESSION_MAX_AGE,
-  })
+export function resolveAppRoles(odooRoles: string[]): string[] {
+  return odooRoles
 }
 
-export async function getSession(): Promise<SessionPayload | null> {
-  const cookieStore = await cookies()
-  const token = cookieStore.get(SESSION_COOKIE)?.value
-
-  if (!token) return null
-
-  try {
-    const { payload } = await verifyJwt<SessionPayload>(token, JWT_SECRET)
-    return payload
-  } catch {
-    return null
-  }
-}
-
-export async function destroySession(): Promise<void> {
-  const cookieStore = await cookies()
-  cookieStore.delete(SESSION_COOKIE)
+export function getAllowedTools(appRoles: string[]): string[] {
+  return ["search_read", "read_group", "name_search", "calculator"]
 }
