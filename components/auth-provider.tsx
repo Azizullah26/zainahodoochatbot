@@ -58,59 +58,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (username: string, password: string) => {
-      console.log("[v0] Login initiated for:", username)
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
       })
 
-      console.log("[v0] Login response status:", res.status)
       const responseText = await res.text()
-      console.log("[v0] Login response text:", responseText.slice(0, 200))
-      
       let data
+
       try {
         data = JSON.parse(responseText)
       } catch (err) {
-        console.error("[v0] Failed to parse login response as JSON")
-        console.error("[v0] Response text:", responseText.slice(0, 500))
-        throw new Error(`Login failed: Server returned ${res.status} - ${responseText.slice(0, 100)}`)
+        throw new Error(`Server error: ${responseText.slice(0, 100)}`)
       }
-      
-      console.log("[v0] Login response:", data)
 
       if (!data.success) {
         throw new Error(data.error || "Login failed")
       }
 
-      // Set user data immediately from login response
-      if (data.user) {
-        setUser(data.user)
-      }
+      setUser(data.user)
 
-      // Re-fetch user data with full app roles and allowed tools
+      // Fetch full user data with app roles
       try {
         const meRes = await fetch("/api/auth/me")
-        console.log("[v0] /api/auth/me status:", meRes.status)
-        
         if (meRes.ok) {
-          let meData
-          try {
-            meData = await meRes.json()
-          } catch (err) {
-            console.error("[v0] Failed to parse /api/auth/me as JSON:", err)
-            return // Use data from login response if /me fails
-          }
-          
+          const meData = await meRes.json()
           if (meData.success && meData.user) {
-            console.log("[v0] Setting user from /api/auth/me:", meData.user)
             setUser(meData.user)
           }
         }
       } catch (err) {
-        console.error("[v0] Error fetching /api/auth/me:", err)
-        // Continue with user from login response
+        // Continue with login response data
       }
     },
     []
