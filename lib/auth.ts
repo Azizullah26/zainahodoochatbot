@@ -1,9 +1,14 @@
 import { cookies } from "next/headers"
-import { signJwt, verifyJwt } from "@/lib/jwt"
+import { Redis } from "@upstash/redis"
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET ?? "dev-secret-key")
-const SESSION_COOKIE = "session"
-const SESSION_MAX_AGE = 86400 * 30 // 30 days
+const redis = new Redis({
+  url: process.env.KV_REST_API_URL!,
+  token: process.env.KV_REST_API_TOKEN!,
+})
+
+const SESSION_COOKIE = "sid"
+const SESSION_TTL = 60 * 60 * 24 * 30 // 30 days in seconds
+const SESSION_KEY_PREFIX = "session:"
 
 export const ODOO_URL = (process.env.ODOO_URL ?? "").replace(/\/$/, "")
 export const ODOO_DB = process.env.ODOO_DB ?? ""
@@ -12,15 +17,9 @@ export const ODOO_DB = process.env.ODOO_DB ?? ""
 
 export type AppRole = string
 
-/**
- * Minimal session stored in cookie — only uid + password.
- * Everything else (name, roles, image) is fetched on demand.
- */
 export interface SessionPayload {
   uid: number
   odooPassword: string
-  iat: number
-  exp: number
 }
 
 export interface OdooUser {
@@ -30,58 +29,68 @@ export interface OdooUser {
   image?: string
 }
 
-// ─── JWT helpers ────────────────────────────────────────────────────
+// ─── Session (Redis-backed) ──────────────────────────────────────────
 
-async function createJwt(
-  payload: Omit<SessionPayload, "iat" | "exp">,
-  expiresIn: number
-): Promise<string> {
-  return signJwt(payload as Record<string, unknown>, JWT_SECRET, expiresIn)
+function generateSessionId(): string {
+  const bytes = new Uint8Array(32)
+  crypto.getRandomValues(bytes)
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("")
 }
 
-async function parseJwt(token: string): Promise<SessionPayload | null> {
+export async function createSession(uid: number, password: string): Promise<void> {
+  const sessionId = generateSessionId()
+  const payload: SessionPayload = { uid, odooPassword: password }
+
+  // Store full session data in Redis with TTL
+  await redis.set(`${SESSION_KEY_PREFIX}${sessionId}`, JSON.stringify(payload), {
+    ex: SESSION_TTL,
+  })
+
+  // Store only the tiny session ID in the cookie (~64 bytes)
+  const store = await cookies()
+  store.set(SESSION_COOKIE, sessionId, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: SESSION_TTL,
+  })
+}
+
+export async function getSession(): Promise<SessionPayload | null> {
   try {
-    const result = await verifyJwt<SessionPayload>(token, JWT_SECRET)
-    return result?.payload ?? null
+    const store = await cookies()
+    const sessionId = store.get(SESSION_COOKIE)?.value
+    if (!sessionId) return null
+
+    const raw = await redis.get<string>(`${SESSION_KEY_PREFIX}${sessionId}`)
+    if (!raw) return null
+
+    const payload: SessionPayload =
+      typeof raw === "string" ? JSON.parse(raw) : (raw as SessionPayload)
+
+    // Refresh TTL on access (sliding expiry)
+    await redis.expire(`${SESSION_KEY_PREFIX}${sessionId}`, SESSION_TTL)
+
+    return payload
   } catch {
     return null
   }
 }
 
-// ─── Session ────────────────────────────────────────────────────────
-
-export async function getSession(): Promise<SessionPayload | null> {
+export async function destroySession(): Promise<void> {
   try {
     const store = await cookies()
-    const token = store.get(SESSION_COOKIE)?.value
-    console.log("[v0] getSession: cookie =", !!token, "len =", token?.length ?? 0)
-    if (!token) return null
-    const session = await parseJwt(token)
-    console.log("[v0] getSession: uid =", session?.uid ?? "null")
-    return session
-  } catch (err) {
-    console.log("[v0] getSession error:", err instanceof Error ? err.message : err)
-    return null
+    const sessionId = store.get(SESSION_COOKIE)?.value
+    if (sessionId) {
+      await redis.del(`${SESSION_KEY_PREFIX}${sessionId}`)
+    }
+    store.delete(SESSION_COOKIE)
+  } catch {
+    // ignore
   }
-}
-
-export async function createSession(uid: number, password: string): Promise<void> {
-  const token = await createJwt({ uid, odooPassword: password }, SESSION_MAX_AGE)
-  console.log("[v0] createSession: token length =", token.length, "uid =", uid)
-  const store = await cookies()
-  store.set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: SESSION_MAX_AGE,
-  })
-  console.log("[v0] createSession: cookie set, name =", SESSION_COOKIE)
-}
-
-export async function destroySession(): Promise<void> {
-  const store = await cookies()
-  store.delete(SESSION_COOKIE)
 }
 
 // ─── Odoo authentication ────────────────────────────────────────────
@@ -118,7 +127,7 @@ export async function authenticateWithOdoo(
   const uid: number = result.uid
   const name: string = result.name ?? username
 
-  // Fetch employee image on login (stored in React state, NOT in cookie)
+  // Fetch employee image on login — returned to client, lives in React state only
   let image: string | undefined
   try {
     image = await fetchEmployeeImage(uid, password)
@@ -161,10 +170,7 @@ export async function fetchEmployeeImage(
   return undefined
 }
 
-export async function fetchUserName(
-  uid: number,
-  password: string
-): Promise<string> {
+export async function fetchUserName(uid: number, password: string): Promise<string> {
   const res = await fetch(`${ODOO_URL}/jsonrpc`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
