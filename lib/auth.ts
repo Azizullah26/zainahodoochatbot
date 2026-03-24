@@ -263,3 +263,9 @@ export function resolveAppRoles(odooRoles: string[]): string[] {
 export function getAllowedTools(appRoles: string[]): string[] {
   return ["search_read", "read_group", "name_search", "calculator"]
 }
+
+export async function destroySession(): Promise<void> {
+  const cookieStore = await cookies()
+  cookieStore.delete(SESSION_COOKIE)
+}
+
