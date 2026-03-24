@@ -1,5 +1,4 @@
 import { authenticateWithOdoo, createSession } from "@/lib/auth"
-import { NextResponse } from "next/server"
 
 export async function POST(req: Request) {
   try {
@@ -7,7 +6,7 @@ export async function POST(req: Request) {
     const { username, password } = body
 
     if (!username || !password) {
-      return NextResponse.json(
+      return Response.json(
         { success: false, error: "Username and password required" },
         { status: 400 }
       )
@@ -16,23 +15,21 @@ export async function POST(req: Request) {
     const user = await authenticateWithOdoo(username, password)
     await createSession(user, password)
 
-    return NextResponse.json(
-      {
-        success: true,
-        user: {
-          uid: user.uid,
-          username: user.username,
-          name: user.name,
-          roles: user.roles,
-          roleNames: user.roleNames,
-          image: user.image,
-        },
+    // Return success - cookie is set via cookies().set() in createSession
+    return Response.json({
+      success: true,
+      user: {
+        uid: user.uid,
+        username: user.username,
+        name: user.name,
+        roles: user.roles,
+        roleNames: user.roleNames,
+        image: user.image,
       },
-      { status: 200 }
-    )
+    })
   } catch (error) {
     const message = error instanceof Error ? error.message : "Authentication failed"
-    return NextResponse.json(
+    return Response.json(
       { success: false, error: message },
       { status: 401 }
     )

@@ -40,7 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false
     async function fetchUser() {
       try {
-        const res = await fetch("/api/auth/me")
+        const res = await fetch("/api/auth/me", { credentials: "include" })
         if (res.ok) {
           const data = await res.json()
           if (!cancelled && data.success) {
@@ -63,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
+        credentials: "include",
       })
 
       const responseText = await res.text()
@@ -82,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Fetch full user data with app roles
       try {
-        const meRes = await fetch("/api/auth/me")
+        const meRes = await fetch("/api/auth/me", { credentials: "include" })
         if (meRes.ok) {
           const meData = await meRes.json()
           if (meData.success && meData.user) {
@@ -97,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   const logout = useCallback(async () => {
-    await fetch("/api/auth/logout", { method: "POST" })
+    await fetch("/api/auth/logout", { method: "POST", credentials: "include" })
     setUser(null)
   }, [])
 
