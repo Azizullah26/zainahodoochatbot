@@ -84,7 +84,7 @@ function createTools(uid: number, password: string, allowedModels: string[]) {
         limit: z.number().optional().default(10),
       }),
       execute: async ({ model, name, domain, limit }) => {
-        if (!isModelAllowed(model, [])) {
+        if (!isModelAllowed(model, allowedModels)) {
           return { error: `Model ${model} is not in your allowed access list` }
         }
 
@@ -235,19 +235,17 @@ export async function POST(req: Request) {
   try {
     // 1. Verify session
     const session = await getSession()
+    console.log("[v0] Chat POST: session =", !!session, "uid =", session?.uid)
     if (!session) {
-      console.error("[v0] Chat: No session found")
       return Response.json(
         { success: false, error: "Authentication required" },
         { status: 401 }
       )
     }
 
-    console.log("[v0] Chat: Session found for uid:", session.uid)
-
     // 2. Get allowed models for this user's roles
     const allowedModels = getAllowedModelsForRoles(session.roles)
-    console.log("[v0] Chat: Allowed models:", allowedModels.length)
+    console.log("[v0] Chat: roles count =", session.roles.length, "allowed models =", allowedModels.length)
 
     // 3. Create tools with model allowlisting
     const allTools = createTools(session.uid, session.odooPassword, allowedModels)

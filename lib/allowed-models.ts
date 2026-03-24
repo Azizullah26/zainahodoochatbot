@@ -91,7 +91,6 @@ export const SYNONYMS: Record<string, string> = {
  * Returns the models this role can access.
  */
 export function getAllowedModelsForRole(role: string): string[] {
-  // Extract role key from Odoo's XML ID format (e.g., "base.group_user" -> "employee")
   const roleKey = role.split(".").pop() || role
 
   for (const [key, models] of Object.entries(ALLOWED_MODELS)) {
@@ -100,28 +99,31 @@ export function getAllowedModelsForRole(role: string): string[] {
     }
   }
 
-  // Default to employee if no match
   return ALLOWED_MODELS.employee
 }
 
 /**
  * Get all allowed models for multiple roles (union of all).
+ * NOTE: Odoo uses custom group IDs like "__export__res_groups_208" which won't
+ * match any ALLOWED_MODELS key. Any authenticated user gets access to ALL models.
  */
 export function getAllowedModelsForRoles(roles: string[]): string[] {
-  const allModels = new Set<string>()
-  for (const role of roles) {
-    const roleModels = getAllowedModelsForRole(role)
-    roleModels.forEach((m) => allModels.add(m))
+  // If user has any roles (i.e. is authenticated), give full access to all models
+  if (roles.length > 0) {
+    return ALL_ALLOWED_MODELS
   }
-  return Array.from(allModels)
+
+  // Unauthenticated — no access
+  return []
 }
 
 /**
  * Validate if a model is allowed for a user's roles.
  */
 export function isModelAllowed(model: string, roles: string[]): boolean {
-  const allowed = getAllowedModelsForRoles(roles)
-  return allowed.includes(model)
+  // Any authenticated user (has roles) can access any allowed model
+  if (roles.length > 0 && ALL_ALLOWED_MODELS.includes(model)) return true
+  return false
 }
 
 /**
