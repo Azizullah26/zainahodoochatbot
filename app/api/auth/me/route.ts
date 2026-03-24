@@ -1,4 +1,4 @@
-import { getSession, getAllowedTools } from "@/lib/auth"
+import { getSession, fetchUserName, getAllowedTools } from "@/lib/auth"
 
 export async function GET() {
   const session = await getSession()
@@ -10,16 +10,20 @@ export async function GET() {
     )
   }
 
-  // Roles are not stored in cookie (too large) — any authenticated user gets full access
-  const allowedTools = getAllowedTools([])
+  // Fetch name on demand — not stored in cookie
+  let name = `User ${session.uid}`
+  try {
+    name = await fetchUserName(session.uid, session.odooPassword)
+  } catch {
+    // fallback to uid-based name
+  }
 
   return Response.json({
     success: true,
     user: {
       uid: session.uid,
-      username: session.username,
-      name: session.name,
-      allowedTools,
+      name,
+      allowedTools: getAllowedTools(),
     },
   })
 }

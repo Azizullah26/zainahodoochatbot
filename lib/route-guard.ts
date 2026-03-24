@@ -9,7 +9,7 @@ import { getSession, type AppRole } from "@/lib/auth"
 export async function requireRole(
   ..._requiredRoles: AppRole[]
 ): Promise<
-  | { authorized: true; uid: number; password: string; username: string }
+  | { authorized: true; uid: number; password: string }
   | { authorized: false; response: Response }
 > {
   const session = await getSession()
@@ -24,11 +24,9 @@ export async function requireRole(
     }
   }
 
-  // Roles are not stored in cookie — any authenticated user gets access
   return {
     authorized: true,
     uid: session.uid,
     password: session.odooPassword,
-    username: session.username,
   }
 }

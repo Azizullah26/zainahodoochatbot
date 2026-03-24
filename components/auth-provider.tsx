@@ -12,11 +12,8 @@ import {
 
 interface AuthUser {
   uid: number
-  username: string
+  username?: string
   name: string
-  roles: string[]
-  roleNames: string[]
-  appRoles: string[]
   allowedTools: string[]
   image?: string
 }
@@ -79,18 +76,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(data.error || "Login failed")
       }
 
-      setUser(data.user)
+      // Set user immediately from login response (has name + image)
+      // image is returned by login but NOT stored in cookie — lives in React state only
+      setUser({
+        uid: data.user.uid,
+        username: data.user.username,
+        name: data.user.name,
+        image: data.user.image,
+        allowedTools: ["search_read", "read_group", "name_search", "calculator"],
+      })
 
-      // Fetch full user data with app roles
+      // Fetch /api/auth/me to confirm session cookie was set correctly
       try {
         const meRes = await fetch("/api/auth/me", { credentials: "include" })
         if (meRes.ok) {
           const meData = await meRes.json()
           if (meData.success && meData.user) {
-            setUser(meData.user)
+            // Merge: keep image from login response, update name/tools from session
+            setUser((prev) => ({ ...prev!, ...meData.user, image: data.user.image }))
           }
         }
-      } catch (err) {
+      } catch {
         // Continue with login response data
       }
     },

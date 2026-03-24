@@ -8,7 +8,7 @@ import {
 } from "ai"
 import { z } from "zod"
 import { searchRead as jsonRpcSearchRead } from "@/lib/odoo/jsonrpc"
-import { getSession } from "@/lib/auth"
+import { getSession, fetchUserName } from "@/lib/auth"
 import {
   getAllowedModelsForRoles,
   isModelAllowed,
@@ -245,11 +245,19 @@ export async function POST(req: Request) {
     // 2. Get allowed models (any authenticated user gets full access)
     const allowedModels = getAllowedModelsForRoles(["authenticated"])
 
-    // 3. Create tools with model allowlisting
+    // 3. Fetch user name on demand (not stored in cookie)
+    let userName = `User ${session.uid}`
+    try {
+      userName = await fetchUserName(session.uid, session.odooPassword)
+    } catch {
+      // fallback to uid-based name
+    }
+
+    // 4. Create tools with model allowlisting
     const allTools = createTools(session.uid, session.odooPassword, allowedModels)
 
-    // 4. Build system prompt with allowed models
-    const systemPrompt = buildSystemPrompt(session.name, [], allowedModels)
+    // 5. Build system prompt with allowed models
+    const systemPrompt = buildSystemPrompt(userName, [], allowedModels)
 
     // 5. Parse request
     const body = await req.json()

@@ -12,27 +12,17 @@ export async function POST(req: Request) {
       )
     }
 
-    const user = await authenticateWithOdoo(username, password)
-    await createSession(user, password)
+    const { uid, name, image } = await authenticateWithOdoo(username, password)
 
-    // Return success - cookie is set via cookies().set() in createSession
+    // Store ONLY uid + password in the cookie (~150 bytes, well under 4096 limit)
+    await createSession(uid, password)
+
     return Response.json({
       success: true,
-      user: {
-        uid: user.uid,
-        username: user.username,
-        name: user.name,
-        roles: user.roles,
-        roleNames: user.roleNames,
-        image: user.image,
-      },
+      user: { uid, username, name, image },
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : "Authentication failed"
-    return Response.json(
-      { success: false, error: message },
-      { status: 401 }
-    )
+    return Response.json({ success: false, error: message }, { status: 401 })
   }
 }
-
