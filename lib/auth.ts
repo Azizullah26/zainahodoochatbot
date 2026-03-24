@@ -12,6 +12,8 @@ const ODOO_DB = process.env.ODOO_DB ?? ""
 
 // ─── Types ──────────────────────────────────────────────────────────
 
+export type AppRole = string
+
 export interface OdooUser {
   uid: number
   username: string
