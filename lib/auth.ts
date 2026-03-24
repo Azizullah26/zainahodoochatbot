@@ -83,23 +83,15 @@ export function getAllowedTools(appRoles: AppRole[]): string[] {
 
 // ─── Odoo Authentication ────────────────────────────────────────────
 
-/**
- * Authenticate with Odoo using the common.authenticate JSON-RPC service.
- * Returns uid (number) on success, or false on invalid credentials.
- */
 export async function authenticateWithOdoo(
   username: string,
   password: string
 ): Promise<OdooUser> {
-  console.log("[v0] authenticateWithOdoo called for:", username)
-  console.log("[v0] ODOO_URL:", ODOO_URL)
-  console.log("[v0] ODOO_DB:", ODOO_DB)
-
   if (!ODOO_URL) throw new Error("ODOO_URL environment variable is not set")
   if (!ODOO_DB) throw new Error("ODOO_DB environment variable is not set")
 
-  const url = `${ODOO_URL}/jsonrpc`
-  console.log("[v0] Calling Odoo at:", url)
+  // Use the correct Odoo endpoint: /web/session/authenticate
+  const url = `${ODOO_URL}/web/session/authenticate`
 
   try {
     const response = await fetch(url, {
@@ -109,43 +101,43 @@ export async function authenticateWithOdoo(
         jsonrpc: "2.0",
         method: "call",
         params: {
-          service: "common",
-          method: "login",
-          args: [ODOO_DB, username, password],
+          db: ODOO_DB,
+          login: username,
+          password: password,
         },
-        id: Math.random(),
       }),
       signal: AbortSignal.timeout(15000),
     })
-
-    console.log("[v0] Odoo response status:", response.status)
 
     if (!response.ok) {
       throw new Error(`Odoo returned HTTP ${response.status}`)
     }
 
     const data = await response.json()
-    console.log("[v0] Odoo JSON-RPC response error:", data.error)
-    console.log("[v0] Odoo JSON-RPC response result:", data.result)
 
-    // Odoo returns uid (number) on success, or false on failure
-    const uid = data.result
-    if (!uid || uid === false) {
-      throw new Error("Invalid username or password")
+    // Check for JSON-RPC error
+    if (data.error) {
+      throw new Error(data.error.message || "Authentication failed")
     }
 
-    if (typeof uid !== "number") {
-      throw new Error(`Unexpected response type: ${typeof uid}`)
+    // Extract result - should contain uid and other user data
+    const result = data.result
+    if (!result || !result.uid) {
+      throw new Error("Invalid authentication response from Odoo")
     }
+
+    const uid = result.uid
+    const name = result.name || username
 
     console.log("[v0] Authentication successful, uid:", uid)
 
-    // Fetch user groups for RBAC (optional - if fails, just use default role)
+    // Fetch user groups for RBAC
     let roles: string[] = []
     let roleNames: string[] = []
 
     try {
-      const groupsRes = await fetch(url, {
+      const groupsUrl = `${ODOO_URL}/jsonrpc`
+      const groupsRes = await fetch(groupsUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -165,10 +157,8 @@ export async function authenticateWithOdoo(
       const userRecord = groupsData.result?.[0]
       const groupIds: number[] = userRecord?.groups_id || []
 
-      console.log("[v0] User has", groupIds.length, "groups")
-
       if (groupIds.length > 0) {
-        const xmlIdRes = await fetch(url, {
+        const xmlIdRes = await fetch(groupsUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -197,13 +187,12 @@ export async function authenticateWithOdoo(
 
         roles = groupRecords.map((g: { module: string; name: string }) => `${g.module}.${g.name}`)
         roleNames = groupRecords.map((g: { complete_name: string }) => g.complete_name).filter(Boolean)
-        console.log("[v0] Resolved", roles.length, "roles")
       }
     } catch (err) {
-      console.warn("[v0] Failed to fetch Odoo groups, defaulting to staff role:", err instanceof Error ? err.message : err)
+      console.warn("[v0] Failed to fetch Odoo groups, defaulting to staff role")
     }
 
-    return { uid, username, name: username, roles, roleNames }
+    return { uid, username, name, roles, roleNames }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     console.error("[v0] Odoo authentication error:", message)
