@@ -45,8 +45,13 @@ async function createJwt(
 }
 
 async function parseJwt(token: string): Promise<SessionPayload | null> {
-  const result = await verifyJwt<SessionPayload>(token, JWT_SECRET)
-  return result?.payload ?? null
+  try {
+    const result = await verifyJwt<SessionPayload>(token, JWT_SECRET)
+    return result?.payload ?? null
+  } catch (err) {
+    console.log("[v0] JWT verify failed:", err instanceof Error ? err.message : err)
+    return null
+  }
 }
 
 // ─── Session ────────────────────────────────────────────────────────
@@ -55,9 +60,13 @@ export async function getSession(): Promise<SessionPayload | null> {
   try {
     const store = await cookies()
     const token = store.get(SESSION_COOKIE)?.value
+    console.log("[v0] getSession: cookie found =", !!token, "cookie name =", SESSION_COOKIE)
     if (!token) return null
-    return await parseJwt(token)
-  } catch {
+    const session = await parseJwt(token)
+    console.log("[v0] getSession: parsed =", !!session)
+    return session
+  } catch (err) {
+    console.log("[v0] getSession error:", err instanceof Error ? err.message : err)
     return null
   }
 }
