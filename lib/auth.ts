@@ -4,7 +4,7 @@ import { cookies } from "next/headers"
 import { signJwt, verifyJwt } from "@/lib/jwt"
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET ?? "dev-secret-key")
-const SESSION_COOKIE = "odoo_session"
+const SESSION_COOKIE = "session"
 const SESSION_MAX_AGE = 86400 * 30
 
 const ODOO_URL = (process.env.ODOO_URL ?? "").replace(/\/$/, "")
@@ -88,8 +88,8 @@ export async function createSession(user: OdooUser, password: string): Promise<v
   const store = await cookies()
   store.set(SESSION_COOKIE, token, {
     httpOnly: true,
-    secure: true,
-    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
     path: "/",
     maxAge: SESSION_MAX_AGE,
   })
