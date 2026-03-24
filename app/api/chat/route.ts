@@ -260,7 +260,7 @@ export async function POST(req: Request) {
 
     const messages = await validateUIMessages<UIMessage>({
       messages: body.messages,
-      tools: allTools,
+      tools: allTools as Record<string, never>,
     })
 
     // 6. Stream response
