@@ -37,25 +37,25 @@ export function LoginForm() {
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-background px-4">
+    <div className="flex min-h-dvh items-center justify-center bg-gradient-to-br from-background to-secondary px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-3">
-          <div className="flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-md">
+          <div className="flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg">
             <Database className="size-7" />
           </div>
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-foreground text-balance">
+            <h1 className="text-3xl font-bold text-foreground text-balance">
               Odoo ERP Assistant
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Sign in with your Odoo account to continue
+              Query projects, employees, tasks & more
             </p>
           </div>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Sign in</CardTitle>
+        <Card className="border border-border shadow-lg">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-xl">Sign in</CardTitle>
             <CardDescription>
               Enter your Odoo credentials below
             </CardDescription>
@@ -75,6 +75,7 @@ export function LoginForm() {
                     autoComplete="username"
                     autoFocus
                     disabled={isPending}
+                    className="border-border bg-input"
                   />
                 </Field>
 
@@ -89,6 +90,7 @@ export function LoginForm() {
                     required
                     autoComplete="current-password"
                     disabled={isPending}
+                    className="border-border bg-input"
                   />
                 </Field>
 
@@ -103,7 +105,7 @@ export function LoginForm() {
 
                 <Button
                   type="submit"
-                  className="w-full"
+                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
                   disabled={isPending || !username || !password}
                 >
                   {isPending ? (
@@ -120,7 +122,7 @@ export function LoginForm() {
           </CardContent>
         </Card>
 
-        <p className="mt-4 text-center text-xs text-muted-foreground">
+        <p className="mt-6 text-center text-xs text-muted-foreground">
           Your credentials are authenticated directly against your Odoo instance.
           We do not store passwords.
         </p>
