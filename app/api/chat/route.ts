@@ -258,9 +258,10 @@ export async function POST(req: Request) {
     // 5. Parse request
     const body = await req.json()
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const messages = await validateUIMessages<UIMessage>({
       messages: body.messages,
-      tools: allTools as Record<string, never>,
+      tools: allTools as any,
     })
 
     // 6. Stream response
