@@ -355,19 +355,6 @@ export async function authenticateWithOdoo(username: string, password: string): 
         roleNames = groupRecords.map((g: { complete_name: string }) => g.complete_name).filter(Boolean)
       }
 
-      image = await fetchEmployeeImage(uid, password)
-    } catch (err) {
-      console.warn("[v0] Failed to fetch Odoo groups/image")
-    }
-
-    return { uid, username, name, roles, roleNames, image }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    console.error("[v0] Odoo authentication error:", message)
-    throw err
-  }
-}
-
 // ─── Role-Based Access Control ──────────────────────────────────────
 
 export function resolveAppRoles(odooRoles: string[]): string[] {
