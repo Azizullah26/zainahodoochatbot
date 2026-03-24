@@ -157,7 +157,7 @@ export function detectModelsInQuery(query: string): string[] {
   for (const modelList of Object.values(ALLOWED_MODELS)) {
     for (const model of modelList) {
       const modelName = model.split(".").pop()
-      if (lowerQuery.includes(modelName)) {
+      if (modelName && lowerQuery.includes(modelName)) {
         detected.add(model)
       }
     }
