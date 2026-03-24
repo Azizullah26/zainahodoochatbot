@@ -5,7 +5,7 @@ import { verifyJwt } from "@/lib/jwt"
 const SESSION_COOKIE = "odoo_session"
 
 // Routes that do NOT require authentication
-const PUBLIC_PATHS = ["/api/auth/login"]
+const PUBLIC_PATHS = ["/api/auth/login", "/api/auth/me", "/api/auth/logout"]
 
 function getJwtSecret() {
   const ODOO_URL = process.env.ODOO_URL || ""
