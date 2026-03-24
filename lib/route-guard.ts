@@ -1,14 +1,15 @@
-import { getSession, resolveAppRoles, type AppRole } from "@/lib/auth"
+import { getSession, type AppRole } from "@/lib/auth"
 
 /**
- * Verifies the user session and checks if they have at least one of the required roles.
- * Returns the session credentials (uid + odooPassword) if authorized,
- * so downstream Odoo calls can use the authenticated user's identity.
+ * Verifies the user session and checks if they are authenticated.
+ * Since roles are not stored in the cookie (to keep it small), 
+ * any authenticated user is granted access.
+ * Returns the session credentials (uid + odooPassword) if authorized.
  */
 export async function requireRole(
-  ...requiredRoles: AppRole[]
+  ..._requiredRoles: AppRole[]
 ): Promise<
-  | { authorized: true; uid: number; password: string; username: string; roles: AppRole[] }
+  | { authorized: true; uid: number; password: string; username: string }
   | { authorized: false; response: Response }
 > {
   const session = await getSession()
@@ -23,25 +24,11 @@ export async function requireRole(
     }
   }
 
-  const appRoles = resolveAppRoles(session.roles)
-
-  const hasAccess = requiredRoles.some((r) => appRoles.includes(r))
-
-  if (!hasAccess) {
-    return {
-      authorized: false,
-      response: Response.json(
-        { success: false, error: "Access denied: insufficient permissions" },
-        { status: 403 }
-      ),
-    }
-  }
-
+  // Roles are not stored in cookie — any authenticated user gets access
   return {
     authorized: true,
     uid: session.uid,
     password: session.odooPassword,
     username: session.username,
-    roles: appRoles,
   }
 }
