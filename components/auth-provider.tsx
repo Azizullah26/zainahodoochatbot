@@ -18,6 +18,7 @@ interface AuthUser {
   roleNames: string[]
   appRoles: string[]
   allowedTools: string[]
+  image?: string
 }
 
 interface AuthContextValue {

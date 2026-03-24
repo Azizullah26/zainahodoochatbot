@@ -4,7 +4,7 @@ import { useAuth } from "@/components/auth-provider"
 import { Database, LogOut, Shield, Zap } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 function getInitials(name: string): string {
   return name
@@ -66,6 +66,7 @@ export function ChatHeader() {
             </div>
 
             <Avatar className="size-8 border border-border">
+              <AvatarImage src={user.image} alt={user.name} />
               <AvatarFallback className="bg-primary/10 text-primary text-xs">
                 {getInitials(user.name)}
               </AvatarFallback>

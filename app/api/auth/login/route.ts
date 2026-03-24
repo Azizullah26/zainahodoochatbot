@@ -25,6 +25,7 @@ export async function POST(req: Request) {
           name: user.name,
           roles: user.roles,
           roleNames: user.roleNames,
+          image: user.image,
         },
       },
       { status: 200 }

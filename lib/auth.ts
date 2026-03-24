@@ -28,6 +28,7 @@ export interface OdooUser {
   name: string
   roles: string[]
   roleNames: string[]
+  image?: string // Base64 or data URL
 }
 
 export interface SessionPayload {
@@ -37,6 +38,7 @@ export interface SessionPayload {
   roles: string[]
   roleNames: string[]
   odooPassword: string
+  image?: string
   iat: number
   exp: number
 }
@@ -83,7 +85,50 @@ export function getAllowedTools(appRoles: AppRole[]): string[] {
 
 // ─── Odoo Authentication ────────────────────────────────────────────
 
-export async function authenticateWithOdoo(
+async function fetchEmployeeImage(
+  uid: number,
+  password: string
+): Promise<string | undefined> {
+  try {
+    const url = `${ODOO_URL}/jsonrpc`
+    
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        method: "call",
+        id: Math.random(),
+        params: {
+          service: "object",
+          method: "execute_kw",
+          args: [
+            ODOO_DB,
+            uid,
+            password,
+            "hr.employee",
+            "search_read",
+            [[["user_id", "=", uid]]],
+            { fields: ["image_1920"], limit: 1 },
+          ],
+        },
+      }),
+      signal: AbortSignal.timeout(10000),
+    })
+
+    const data = await response.json()
+    const employees = data.result || []
+    
+    if (employees.length > 0 && employees[0].image_1920) {
+      // Convert base64 to data URL
+      return `data:image/png;base64,${employees[0].image_1920}`
+    }
+  } catch (err) {
+    console.warn("[v0] Failed to fetch employee image:", err instanceof Error ? err.message : err)
+  }
+  
+  return undefined
+}
   username: string,
   password: string
 ): Promise<OdooUser> {
@@ -131,9 +176,10 @@ export async function authenticateWithOdoo(
 
     console.log("[v0] Authentication successful, uid:", uid)
 
-    // Fetch user groups for RBAC
+    // Fetch user groups for RBAC and employee image
     let roles: string[] = []
     let roleNames: string[] = []
+    let image: string | undefined
 
     try {
       const groupsUrl = `${ODOO_URL}/jsonrpc`
@@ -188,11 +234,14 @@ export async function authenticateWithOdoo(
         roles = groupRecords.map((g: { module: string; name: string }) => `${g.module}.${g.name}`)
         roleNames = groupRecords.map((g: { complete_name: string }) => g.complete_name).filter(Boolean)
       }
+      
+      // Fetch employee profile image
+      image = await fetchEmployeeImage(uid, password)
     } catch (err) {
-      console.warn("[v0] Failed to fetch Odoo groups, defaulting to staff role")
+      console.warn("[v0] Failed to fetch Odoo groups/image, defaulting to staff role")
     }
 
-    return { uid, username, name, roles, roleNames }
+    return { uid, username, name, roles, roleNames, image }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     console.error("[v0] Odoo authentication error:", message)
@@ -210,6 +259,7 @@ export async function createSession(user: OdooUser, password: string): Promise<v
       name: user.name,
       roles: user.roles,
       roleNames: user.roleNames,
+      image: user.image,
       odooPassword: password,
     },
     JWT_SECRET,
@@ -220,7 +270,7 @@ export async function createSession(user: OdooUser, password: string): Promise<v
   cookieStore.set(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: true,
-    sameSite: "lax", // Use lax instead of strict for preview environments
+    sameSite: "lax",
     path: "/",
     maxAge: SESSION_MAX_AGE,
   })
