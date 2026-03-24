@@ -5,9 +5,10 @@ import {
   useContext,
   useCallback,
   useMemo,
+  useState,
+  useEffect,
   type ReactNode,
 } from "react"
-import useSWR from "swr"
 
 interface AuthUser {
   uid: number
@@ -29,23 +30,31 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-const fetcher = async (url: string) => {
-  const res = await fetch(url)
-  if (!res.ok) return null
-  const data = await res.json()
-  return data.success ? data.user : null
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { data: user, isLoading, mutate } = useSWR<AuthUser | null>(
-    "/api/auth/me",
-    fetcher,
-    {
-      revalidateOnFocus: false,
-      shouldRetryOnError: false,
-      fallbackData: null,
+  const [user, setUser] = useState<AuthUser | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Fetch the current user on mount
+  useEffect(() => {
+    let cancelled = false
+    async function fetchUser() {
+      try {
+        const res = await fetch("/api/auth/me")
+        if (res.ok) {
+          const data = await res.json()
+          if (!cancelled && data.success) {
+            setUser(data.user)
+          }
+        }
+      } catch {
+        // not authenticated
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-  )
+    fetchUser()
+    return () => { cancelled = true }
+  }, [])
 
   const login = useCallback(
     async (username: string, password: string) => {
@@ -62,19 +71,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // Re-fetch user data (which includes appRoles and allowedTools from /me)
-      await mutate()
+      const meRes = await fetch("/api/auth/me")
+      if (meRes.ok) {
+        const meData = await meRes.json()
+        if (meData.success) {
+          setUser(meData.user)
+        }
+      }
     },
-    [mutate]
+    []
   )
 
   const logout = useCallback(async () => {
     await fetch("/api/auth/logout", { method: "POST" })
-    await mutate(null, { revalidate: false })
-  }, [mutate])
+    setUser(null)
+  }, [])
 
   const value = useMemo(
     () => ({
-      user: user ?? null,
+      user,
       isLoading,
       isAuthenticated: !!user,
       login,

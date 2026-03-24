@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-import { jwtVerify } from "jose"
+import { verifyJwt } from "@/lib/jwt"
 
 const SESSION_COOKIE = "odoo_session"
 
@@ -39,7 +39,7 @@ export async function middleware(request: NextRequest) {
 
   try {
     const secret = getJwtSecret()
-    const { payload } = await jwtVerify(token, secret)
+    const { payload } = await verifyJwt(token, secret)
 
     // Attach user info to request headers for downstream use
     const response = NextResponse.next()

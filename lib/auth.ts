@@ -1,4 +1,4 @@
-import { SignJWT, jwtVerify } from "jose"
+import { signJwt, verifyJwt } from "@/lib/jwt"
 import { cookies } from "next/headers"
 
 const ODOO_URL = process.env.ODOO_URL!
@@ -179,18 +179,18 @@ export async function authenticateWithOdoo(
 // ─── Session Management (JWT + HTTP-only cookies) ───────────────────
 
 export async function createSession(user: OdooUser, password: string): Promise<void> {
-  const token = await new SignJWT({
-    uid: user.uid,
-    username: user.username,
-    name: user.name,
-    roles: user.roles,
-    roleNames: user.roleNames,
-    odooPassword: password,
-  } satisfies Omit<SessionPayload, "iat" | "exp">)
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime(`${SESSION_MAX_AGE}s`)
-    .sign(JWT_SECRET)
+  const token = await signJwt(
+    {
+      uid: user.uid,
+      username: user.username,
+      name: user.name,
+      roles: user.roles,
+      roleNames: user.roleNames,
+      odooPassword: password,
+    },
+    JWT_SECRET,
+    SESSION_MAX_AGE
+  )
 
   const cookieStore = await cookies()
   cookieStore.set(SESSION_COOKIE, token, {
@@ -209,8 +209,8 @@ export async function getSession(): Promise<SessionPayload | null> {
   if (!token) return null
 
   try {
-    const { payload } = await jwtVerify(token, JWT_SECRET)
-    return payload as unknown as SessionPayload
+    const { payload } = await verifyJwt<SessionPayload>(token, JWT_SECRET)
+    return payload
   } catch {
     return null
   }
