@@ -8,6 +8,7 @@ import {
   Loader2,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { sanitizeError, getToolFriendlyName } from "@/lib/error-sanitizer"
 
 interface ToolOutputProps {
   toolName: string
@@ -113,12 +114,7 @@ export function ToolOutput({
         </div>
         {errorText && (
           <p className="mt-1 text-xs text-destructive/80">
-            {/* Hide technical Odoo errors, show generic message */}
-            {errorText.includes("Invalid field") 
-              ? "Some fields are not available for this data type."
-              : errorText.length > 150
-              ? errorText.substring(0, 150) + "..."
-              : errorText}
+            {sanitizeError(errorText)}
           </p>
         )}
       </div>
@@ -152,9 +148,7 @@ export function ToolOutput({
           </div>
           {!!output.error && (
             <p className="mt-1 text-xs text-destructive/80">
-              {String(output.error).length > 150
-                ? String(output.error).substring(0, 150) + "..."
-                : String(output.error)}
+              {sanitizeError(String(output.error))}
             </p>
           )}
         </div>
