@@ -87,9 +87,12 @@ export function ChatSuggestions({ onSelect }: ChatSuggestionsProps) {
   const { user } = useAuth()
   const allowedTools = user?.allowedTools || []
 
-  const visibleSuggestions = allSuggestions.filter((s) =>
-    allowedTools.includes(s.requiredTool)
-  )
+  // Show all suggestions by default if user has no allowedTools restriction
+  // Otherwise filter by allowedTools
+  const visibleSuggestions =
+    allowedTools.length === 0
+      ? allSuggestions
+      : allSuggestions.filter((s) => allowedTools.includes(s.requiredTool))
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6">
