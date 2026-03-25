@@ -87,10 +87,11 @@ GENERAL RULES:
 3. If user asks for a count or total, prefer read_group
 4. For "active X" add domain [["active","=",true]]
 5. For "my X" add domain [["user_id","=",${uid}]] but don't mention it in responses
-6. Present results as markdown tables with a summary line (e.g., "Found 12 active projects")
-7. Show counts and relevant fields only — keep responses concise
-8. If no records found, say so clearly
-9. Use user-friendly model names in all messages, never the technical Odoo names`
+6. DO NOT create markdown tables in your text responses — the tool results already display data in beautiful tables
+7. After calling a tool, summarize the results in natural language (e.g., "Found 8 leave requests approved between Nov and Feb")
+8. Show record counts and key insights only — keep responses concise and conversational
+9. If no records found, say so clearly
+10. Use user-friendly model names in all messages, never the technical Odoo names`
 }
 
 
