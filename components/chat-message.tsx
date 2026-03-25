@@ -37,17 +37,6 @@ export function ChatMessage({ message }: ChatMessageProps) {
         </div>
       )}
 
-      {isUser && (
-        <div className="flex gap-3 flex-row-reverse">
-          <Avatar className="size-8 shrink-0 border-2 border-primary/40 ring-1 ring-primary/20">
-            <AvatarImage src={user?.image} alt={user?.name} />
-            <AvatarFallback className="bg-gradient-to-br from-primary to-secondary text-background text-xs font-semibold">
-              {user?.name?.[0]?.toUpperCase() || "U"}
-            </AvatarFallback>
-          </Avatar>
-        </div>
-      )}
-
       <div
         className={cn(
           "flex max-w-[80%] flex-col gap-1",
@@ -99,6 +88,15 @@ export function ChatMessage({ message }: ChatMessageProps) {
           })}
         </div>
       </div>
+
+      {isUser && (
+        <Avatar className="size-8 shrink-0 border-2 border-primary/40 ring-1 ring-primary/20">
+          <AvatarImage src={user?.image} alt={user?.name} />
+          <AvatarFallback className="bg-gradient-to-br from-primary to-secondary text-background text-xs font-semibold">
+            {user?.name?.[0]?.toUpperCase() || "U"}
+          </AvatarFallback>
+        </Avatar>
+      )}
     </div>
   )
 }
