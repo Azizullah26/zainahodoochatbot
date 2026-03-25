@@ -85,14 +85,6 @@ interface ChatSuggestionsProps {
 
 export function ChatSuggestions({ onSelect }: ChatSuggestionsProps) {
   const { user } = useAuth()
-  const allowedTools = user?.allowedTools || []
-
-  // Show all suggestions by default if user has no allowedTools restriction
-  // Otherwise filter by allowedTools
-  const visibleSuggestions =
-    allowedTools.length === 0
-      ? allSuggestions
-      : allSuggestions.filter((s) => allowedTools.includes(s.requiredTool))
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6">
@@ -111,7 +103,7 @@ export function ChatSuggestions({ onSelect }: ChatSuggestionsProps) {
       </div>
 
       <div className="flex flex-wrap justify-center gap-2">
-        {visibleSuggestions.map((s) => (
+        {allSuggestions.map((s) => (
           <Button
             key={s.label}
             variant="outline"
@@ -122,11 +114,6 @@ export function ChatSuggestions({ onSelect }: ChatSuggestionsProps) {
             {s.label}
           </Button>
         ))}
-        {visibleSuggestions.length === 0 && (
-          <p className="text-sm text-muted-foreground">
-            No modules available for your role. Contact your administrator for access.
-          </p>
-        )}
       </div>
     </div>
   )
