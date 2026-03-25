@@ -36,6 +36,7 @@ export function LoginForm() {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include", // Include HTTP-only cookies in the response
         body: JSON.stringify({ username, password }),
       })
 
@@ -76,6 +77,7 @@ export function LoginForm() {
       const response = await fetch("/api/auth/verify-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include", // Include HTTP-only cookies in the request
         body: JSON.stringify({ otp, userId }),
       })
 
