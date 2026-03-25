@@ -47,6 +47,7 @@ export async function createSession(uid: number, password: string): Promise<void
   await redis.set(`${SESSION_KEY_PREFIX}${sessionId}`, JSON.stringify(payload), {
     ex: SESSION_TTL,
   })
+  console.log("[v0] createSession: Stored in Redis, sessionId =", sessionId.slice(0, 8))
 
   // Store only the tiny session ID in the cookie (~64 bytes)
   const store = await cookies()
@@ -57,15 +58,18 @@ export async function createSession(uid: number, password: string): Promise<void
     path: "/",
     maxAge: SESSION_TTL,
   })
+  console.log("[v0] createSession: Cookie set, cookie name =", SESSION_COOKIE)
 }
 
 export async function getSession(): Promise<SessionPayload | null> {
   try {
     const store = await cookies()
     const sessionId = store.get(SESSION_COOKIE)?.value
+    console.log("[v0] getSession: sessionId found =", !!sessionId, "id =", sessionId?.slice(0, 8))
     if (!sessionId) return null
 
     const raw = await redis.get<string>(`${SESSION_KEY_PREFIX}${sessionId}`)
+    console.log("[v0] getSession: Redis lookup =", !!raw, "key =", `${SESSION_KEY_PREFIX}${sessionId.slice(0, 8)}`)
     if (!raw) return null
 
     const payload: SessionPayload =
@@ -75,7 +79,8 @@ export async function getSession(): Promise<SessionPayload | null> {
     await redis.expire(`${SESSION_KEY_PREFIX}${sessionId}`, SESSION_TTL)
 
     return payload
-  } catch {
+  } catch (err) {
+    console.log("[v0] getSession error:", err instanceof Error ? err.message : err)
     return null
   }
 }
