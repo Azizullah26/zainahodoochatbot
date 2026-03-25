@@ -53,17 +53,31 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
         </div>
         <Button
           type="button"
-          size="icon"
           onClick={handleSubmit}
           disabled={!input.trim() || isLoading}
-          className="size-10 shrink-0 rounded-xl button-glow bg-gradient-to-r from-primary to-secondary hover:from-primary/80 hover:to-secondary/80 text-background"
+          className={cn(
+            "shrink-0 px-8 py-2 rounded-full font-semibold text-foreground transition-all duration-300",
+            "relative overflow-hidden",
+            "border-2 border-primary/60 bg-background/40 backdrop-blur-sm",
+            "hover:border-primary hover:shadow-lg hover:shadow-primary/50 hover:bg-background/60",
+            "disabled:opacity-50 disabled:cursor-not-allowed",
+            "before:absolute before:inset-0 before:bg-gradient-to-t before:from-primary/30 before:to-transparent before:opacity-0 before:hover:opacity-100 before:transition-opacity before:duration-300"
+          )}
           aria-label="Send message"
         >
-          {isLoading ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <ArrowUp className="size-4" />
-          )}
+          <span className="relative z-10 flex items-center gap-2">
+            {isLoading ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                <span>Sending...</span>
+              </>
+            ) : (
+              <>
+                <span>Send</span>
+                <ArrowUp className="size-4" />
+              </>
+            )}
+          </span>
         </Button>
       </div>
     </div>

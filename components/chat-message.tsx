@@ -19,11 +19,20 @@ export function ChatMessage({ message }: ChatMessageProps) {
       )}
     >
       {!isUser && (
-        <Avatar className="size-8 shrink-0 border border-border">
-          <AvatarFallback className="bg-primary/10 text-primary">
-            <Bot className="size-4" />
-          </AvatarFallback>
-        </Avatar>
+        <div className="size-8 shrink-0 rounded-full overflow-hidden ring-2 ring-primary/50 flex items-center justify-center bg-gradient-to-br from-primary/30 to-secondary/30">
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="w-full h-full object-cover"
+          >
+            <source
+              src="https://v1.pinimg.com/videos/mc/720p/35/b4/7e/35b47e00498aa77ba00f2aa03b1cf73a.mp4"
+              type="video/mp4"
+            />
+          </video>
+        </div>
       )}
 
       <div
