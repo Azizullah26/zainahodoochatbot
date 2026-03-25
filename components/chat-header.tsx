@@ -22,13 +22,13 @@ export function ChatHeader() {
   return (
     <header className="flex items-center justify-between border-b border-primary/20 bg-card/40 backdrop-blur-sm px-6 py-4">
       <div className="flex items-center gap-4">
-        <div className="flex items-center justify-center overflow-hidden ring-2 ring-primary/30 glow-primary">
+        <div className="flex items-center justify-center overflow-hidden ring-2 ring-primary/30 glow-primary aspect-video">
           <Image
             src="/logo.png"
             alt="ELRACE Logo"
             width={60}
             height={30}
-            className="h-auto w-auto max-w-[60px]"
+            className="h-full w-auto object-contain"
             priority
           />
         </div>

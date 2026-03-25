@@ -8,6 +8,7 @@ import {
   ListTodo,
   Contact,
   Clock,
+  Zap,
   type LucideIcon,
 } from "lucide-react"
 
@@ -78,6 +79,21 @@ export function ChatSuggestions({ onSelect }: ChatSuggestionsProps) {
           </p>
         )}
       </div>
+
+      {/* My Requests Filter Bar */}
+      <div className="flex items-center justify-center gap-3">
+        <div className="flex size-10 items-center justify-center rounded-full bg-primary text-primary-foreground ring-2 ring-primary/30">
+          <Zap className="size-5" />
+        </div>
+        <Button
+          variant="outline"
+          className="rounded-full px-6 border-primary/50 bg-primary/10 hover:bg-primary/20 text-primary font-semibold"
+          disabled
+        >
+          My requests
+        </Button>
+      </div>
+
       <div className="flex flex-wrap justify-center gap-2">
         {visibleSuggestions.map((s) => (
           <Button
