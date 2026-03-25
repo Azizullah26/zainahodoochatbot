@@ -4,74 +4,74 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #0f0f1a;
-  --foreground: #e8e8f0;
-  --card: #1a1a2e;
-  --card-foreground: #e8e8f0;
-  --popover: #1a1a2e;
-  --popover-foreground: #e8e8f0;
-  --primary: #880808;
-  --primary-foreground: #ffffff;
-  --secondary: #000080;
-  --secondary-foreground: #e8e8f0;
-  --muted: #2a2a3e;
-  --muted-foreground: #a0a0b0;
-  --accent: #c41e3a;
-  --accent-foreground: #ffffff;
-  --destructive: #ff4757;
+  --background: #0a1428;
+  --foreground: #e0f7ff;
+  --card: #0f1f35;
+  --card-foreground: #e0f7ff;
+  --popover: #0f1f35;
+  --popover-foreground: #e0f7ff;
+  --primary: #00d4ff;
+  --primary-foreground: #0a1428;
+  --secondary: #0099cc;
+  --secondary-foreground: #e0f7ff;
+  --muted: #1a2a42;
+  --muted-foreground: #7fa8c4;
+  --accent: #00ffff;
+  --accent-foreground: #0a1428;
+  --destructive: #ff3366;
   --destructive-foreground: #ffffff;
-  --border: #2a2a3e;
-  --input: #1a1a2e;
-  --ring: #880808;
-  --chart-1: #880808;
-  --chart-2: #c41e3a;
-  --chart-3: #000080;
-  --chart-4: #1a3a6b;
-  --chart-5: #0d1e52;
-  --radius: 0.625rem;
-  --sidebar: #0f0f1a;
-  --sidebar-foreground: #e8e8f0;
-  --sidebar-primary: #880808;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #1a3a6b;
-  --sidebar-accent-foreground: #e8e8f0;
-  --sidebar-border: #2a2a3e;
-  --sidebar-ring: #880808;
+  --border: #1a4d66;
+  --input: #0f2535;
+  --ring: #00d4ff;
+  --chart-1: #00d4ff;
+  --chart-2: #00ffff;
+  --chart-3: #0099cc;
+  --chart-4: #0066aa;
+  --chart-5: #004488;
+  --radius: 0.75rem;
+  --sidebar: #0a1428;
+  --sidebar-foreground: #e0f7ff;
+  --sidebar-primary: #00d4ff;
+  --sidebar-primary-foreground: #0a1428;
+  --sidebar-accent: #0099cc;
+  --sidebar-accent-foreground: #e0f7ff;
+  --sidebar-border: #1a4d66;
+  --sidebar-ring: #00d4ff;
 }
 
 .dark {
-  --background: #0a0a12;
-  --foreground: #f0f0f8;
-  --card: #151520;
-  --card-foreground: #f0f0f8;
-  --popover: #151520;
-  --popover-foreground: #f0f0f8;
-  --primary: #c41e3a;
-  --primary-foreground: #ffffff;
-  --secondary: #1a3a6b;
-  --secondary-foreground: #f0f0f8;
-  --muted: #262635;
-  --muted-foreground: #a8a8b8;
-  --accent: #ff6b7a;
-  --accent-foreground: #ffffff;
-  --destructive: #ff5568;
+  --background: #050a15;
+  --foreground: #e0f7ff;
+  --card: #0a1525;
+  --card-foreground: #e0f7ff;
+  --popover: #0a1525;
+  --popover-foreground: #e0f7ff;
+  --primary: #00e5ff;
+  --primary-foreground: #050a15;
+  --secondary: #00b4d8;
+  --secondary-foreground: #e0f7ff;
+  --muted: #152d42;
+  --muted-foreground: #7fb8d4;
+  --accent: #00ffff;
+  --accent-foreground: #050a15;
+  --destructive: #ff4477;
   --destructive-foreground: #ffffff;
-  --border: #262635;
-  --input: #151520;
-  --ring: #c41e3a;
-  --chart-1: #c41e3a;
-  --chart-2: #ff6b7a;
-  --chart-3: #1a3a6b;
-  --chart-4: #2a4a8b;
-  --chart-5: #1a2a5b;
-  --sidebar: #0a0a12;
-  --sidebar-foreground: #f0f0f8;
-  --sidebar-primary: #c41e3a;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #1a3a6b;
-  --sidebar-accent-foreground: #f0f0f8;
-  --sidebar-border: #262635;
-  --sidebar-ring: #c41e3a;
+  --border: #1a5566;
+  --input: #0a1f30;
+  --ring: #00e5ff;
+  --chart-1: #00e5ff;
+  --chart-2: #00ffff;
+  --chart-3: #00b4d8;
+  --chart-4: #0088bb;
+  --chart-5: #005599;
+  --sidebar: #050a15;
+  --sidebar-foreground: #e0f7ff;
+  --sidebar-primary: #00e5ff;
+  --sidebar-primary-foreground: #050a15;
+  --sidebar-accent: #00b4d8;
+  --sidebar-accent-foreground: #e0f7ff;
+  --sidebar-border: #1a5566;
+  --sidebar-ring: #00e5ff;
 }
 
 @theme inline {
@@ -121,5 +121,28 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Glassmorphism & Glow Effects */
+@layer components {
+  .glass {
+    @apply backdrop-blur-md bg-background/40 border border-border/30;
+  }
+
+  .glow-primary {
+    @apply shadow-lg shadow-primary/20;
+  }
+
+  .glow-accent {
+    @apply shadow-lg shadow-accent/30;
+  }
+
+  .button-glow {
+    @apply relative transition-all duration-300 hover:shadow-xl hover:shadow-primary/50;
+  }
+
+  .input-glow {
+    @apply border-border/50 transition-all duration-300 focus:border-primary focus:shadow-md focus:shadow-primary/20;
   }
 }

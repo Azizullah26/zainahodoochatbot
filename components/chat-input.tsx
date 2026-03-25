@@ -28,8 +28,8 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
   }
 
   return (
-    <div className="border-t border-border bg-card px-4 py-3">
-      <div className="mx-auto flex max-w-3xl items-end gap-2">
+    <div className="border-t border-primary/20 bg-card/40 backdrop-blur-sm px-4 py-4">
+      <div className="mx-auto flex max-w-3xl items-end gap-3">
         <div className="relative flex-1">
           <textarea
             ref={textareaRef}
@@ -44,20 +44,19 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
             placeholder="Ask about projects, employees, tasks..."
             rows={1}
             className={cn(
-              "w-full resize-none rounded-xl border border-input bg-background px-4 py-3 pr-12 text-sm text-foreground",
-              "placeholder:text-muted-foreground",
-              "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-0",
+              "w-full resize-none rounded-xl border border-primary/30 bg-background/50 px-4 py-3 pr-12 text-sm text-foreground input-glow",
+              "placeholder:text-muted-foreground/50",
+              "focus:outline-none focus:border-primary focus:shadow-md focus:shadow-primary/20 focus:bg-background/70",
               "disabled:cursor-not-allowed disabled:opacity-50"
             )}
-            disabled={isLoading}
-            aria-label="Chat message input"
           />
         </div>
         <Button
+          type="button"
           size="icon"
           onClick={handleSubmit}
           disabled={!input.trim() || isLoading}
-          className="size-10 shrink-0 rounded-xl"
+          className="size-10 shrink-0 rounded-xl button-glow bg-gradient-to-r from-primary to-secondary hover:from-primary/80 hover:to-secondary/80 text-background"
           aria-label="Send message"
         >
           {isLoading ? (
