@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useAuth } from "@/components/auth-provider"
+import Image from "next/image"
 import {
   Card,
   CardContent,
@@ -13,7 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Field, FieldGroup, FieldLabel, FieldError } from "@/components/ui/field"
 import { Spinner } from "@/components/ui/spinner"
-import { Database, AlertCircle } from "lucide-react"
+import { AlertCircle } from "lucide-react"
 
 export function LoginForm() {
   const { login } = useAuth()
@@ -62,13 +63,19 @@ export function LoginForm() {
         <div className="w-full max-w-md">
           {/* Logo and Title */}
           <div className="mb-8 flex flex-col items-center gap-4">
-            <div className="relative flex size-16 items-center justify-center rounded-3xl bg-gradient-to-br from-primary to-secondary shadow-2xl glow-primary">
-              <div className="absolute inset-0 rounded-3xl bg-primary/20 blur-xl" />
-              <Database className="relative size-8 text-background" />
+            <div className="relative flex items-center justify-center ring-2 ring-primary/50">
+              <Image
+                src="/logo.png"
+                alt="ELRACE Logo"
+                width={180}
+                height={80}
+                priority
+                className="h-auto w-auto max-w-xs"
+              />
             </div>
             <div className="text-center">
               <h1 className="text-4xl font-bold text-balance bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                Elrace AI
+                ELRACE
               </h1>
               <p className="mt-2 text-lg font-semibold text-foreground">
                 Odoo Assistant

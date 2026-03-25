@@ -22,19 +22,19 @@ export function ChatHeader() {
   return (
     <header className="flex items-center justify-between border-b border-primary/20 bg-card/40 backdrop-blur-sm px-6 py-4">
       <div className="flex items-center gap-4">
-        <div className="flex size-11 items-center justify-center rounded-xl overflow-hidden ring-2 ring-primary/30 glow-primary">
+        <div className="flex items-center justify-center overflow-hidden ring-2 ring-primary/30 glow-primary">
           <Image
-            src="https://elrace.com/RCC4/Requirements/IMG/rcclogo.PNG"
-            alt="Elrace Logo"
-            width={40}
-            height={40}
-            className="w-full h-full object-contain"
+            src="/logo.png"
+            alt="ELRACE Logo"
+            width={60}
+            height={30}
+            className="h-auto w-auto max-w-[60px]"
             priority
           />
         </div>
         <div>
           <h1 className="text-lg font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent text-balance">
-            SPACE Assistant
+            ELRACE Odoo Assistant
           </h1>
           <p className="text-xs text-muted-foreground">
             Query projects, employees, tasks & more
