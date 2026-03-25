@@ -40,30 +40,71 @@ const toolLabels: Record<string, string> = {
 
 // Friendly field name mappings (hide technical names like employee_id, date_from, etc.)
 const fieldDisplayNames: Record<string, string> = {
+  // Basic fields
   id: "ID",
   name: "Name",
+  
+  // Employee/HR fields
   employee_id: "Employee",
   employee: "Employee",
+  work_email: "Work Email",
+  work_phone: "Work Phone",
+  mobile_phone: "Mobile Phone",
+  job_id: "Job Title",
+  job_title: "Job Title",
+  department_id: "Department",
+  department: "Department",
+  parent_id: "Manager",
+  manager: "Manager",
+  work_location: "Work Location",
+  address_home_id: "Home Address",
+  home_address: "Home Address",
+  barcode: "Employee ID",
+  identification_id: "ID Number",
+  
+  // Leave/Time-off fields
   date_from: "From Date",
   date_to: "To Date",
+  date_start: "Start Date",
+  date_end: "End Date",
   state: "Status",
   number_of_days: "Days",
   holiday_status_id: "Type",
   holiday_status: "Type",
   request_date: "Request Date",
+  
+  // General fields
   status: "Status",
   date: "Date",
-  date_start: "Start Date",
-  date_end: "End Date",
   description: "Description",
   user_id: "User",
+  user: "User",
   project_id: "Project",
+  project: "Project",
   task_id: "Task",
+  task: "Task",
   stage_id: "Stage",
+  stage: "Stage",
   priority: "Priority",
   company_id: "Company",
+  company: "Company",
   create_date: "Created",
   write_date: "Updated",
+  
+  // Additional common fields
+  email: "Email",
+  phone: "Phone",
+  street: "Street",
+  city: "City",
+  state_id: "State",
+  country_id: "Country",
+  zip: "Zip Code",
+  ref: "Reference",
+  active: "Active",
+  sequence: "Sequence",
+  color: "Color",
+  notes: "Notes",
+  comment: "Comments",
 }
 
 function getFriendlyFieldName(fieldName: string): string {
