@@ -34,11 +34,7 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
 
   return (
     <div className="border-t border-primary/20 bg-card/40 backdrop-blur-sm px-4 py-4">
-      <div className="mx-auto flex max-w-3xl items-end gap-3">
-        <VoiceInput
-          onTranscript={handleVoiceTranscript}
-          disabled={isLoading}
-        />
+      <div className="mx-auto flex max-w-3xl items-center gap-3">
         <div className="relative flex-1">
           <textarea
             ref={textareaRef}
@@ -53,12 +49,20 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
             placeholder="Ask about projects, employees, tasks..."
             rows={1}
             className={cn(
-              "w-full resize-none rounded-xl border border-primary/30 bg-background/50 px-4 py-3 pr-12 text-sm text-foreground input-glow scrollbar-hide",
+              "w-full resize-none rounded-xl border border-primary/30 bg-background/50 px-4 py-3 pr-16 text-sm text-foreground input-glow scrollbar-hide",
               "placeholder:text-muted-foreground/50",
               "focus:outline-none focus:border-primary focus:shadow-md focus:shadow-primary/20 focus:bg-background/70",
               "disabled:cursor-not-allowed disabled:opacity-50"
             )}
           />
+          {/* Voice button inside input field */}
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+            <VoiceInput
+              onTranscript={handleVoiceTranscript}
+              disabled={isLoading}
+              compact={true}
+            />
+          </div>
         </div>
         <Button
           type="button"
