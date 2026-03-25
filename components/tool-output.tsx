@@ -32,6 +32,10 @@ const toolLabels: Record<string, string> = {
   getTasks: "Tasks",
   getPartners: "Partners",
   getTimesheets: "Timesheets",
+  search_read: "",
+  read_group: "",
+  name_search: "",
+  calculator: "",
 }
 
 // Friendly field name mappings (hide technical names like employee_id, date_from, etc.)
@@ -110,7 +114,9 @@ export function ToolOutput({
       <div className="my-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
         <div className="flex items-center gap-2 text-sm text-destructive">
           <AlertCircle className="size-4" />
-          <span className="font-medium">Could not fetch {label.toLowerCase()}</span>
+          <span className="font-medium">
+            {label ? `Could not fetch ${label.toLowerCase()}` : "Could not fetch data"}
+          </span>
         </div>
         {errorText && (
           <p className="mt-1 text-xs text-destructive/80">
@@ -157,13 +163,16 @@ export function ToolOutput({
 
     return (
       <div className="my-2 rounded-lg border border-border bg-muted/30 p-3">
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-primary">{icon}</span>
-          <span className="font-medium text-foreground">{label}</span>
-          <Badge variant="secondary" className="text-xs">
-            {count} {count === 1 ? "record" : "records"}
-          </Badge>
-        </div>
+        {/* Only show header if there's a user-friendly label */}
+        {label && (
+          <div className="flex items-center gap-2 text-sm mb-3">
+            <span className="text-primary">{icon}</span>
+            <span className="font-medium text-foreground">{label}</span>
+            <Badge variant="secondary" className="text-xs">
+              {count} {count === 1 ? "record" : "records"}
+            </Badge>
+          </div>
+        )}
 
         {/* Show data table if available */}
         {data && data.length > 0 && (
@@ -207,7 +216,7 @@ export function ToolOutput({
         {/* Show summary message */}
         {data && data.length > 0 && (
           <p className="mt-2 text-xs text-muted-foreground">
-            Found {count} {label.toLowerCase()} for you.
+            Found {count} {label ? label.toLowerCase() : "records"} for you.
           </p>
         )}
       </div>
