@@ -28,14 +28,14 @@ export const metadata: Metadata = {
     siteName: 'ELRACE',
     images: [
       {
-        url: '/elrace-og-image.png',
+        url: 'https://elrace.com/RCC4/Requirements/IMG/rcclogo.PNG',
         width: 1200,
         height: 630,
         alt: 'ELRACE Logo',
         type: 'image/png',
       },
       {
-        url: '/elrace-og-image.png',
+        url: 'https://elrace.com/RCC4/Requirements/IMG/rcclogo.PNG',
         width: 800,
         height: 600,
         alt: 'ELRACE Logo',
