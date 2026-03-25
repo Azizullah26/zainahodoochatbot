@@ -103,7 +103,7 @@ export async function destroySession(): Promise<void> {
 export interface LoginCheckResponse {
   uid: number
   session_id: string
-  totp_enabled: boolean
+  need_2fa: boolean
   qr_code?: string
 }
 
@@ -153,10 +153,12 @@ export async function checkLoginWith2FA(
     throw new Error(apiResult?.error || "Invalid credentials")
   }
 
+  console.log("[v0] Odoo API result - need_2fa:", apiResult.need_2fa, "uid:", apiResult.uid)
+
   return {
     uid: apiResult.uid,
     session_id: apiResult.session_id,
-    totp_enabled: apiResult.totp_enabled ?? false,
+    need_2fa: apiResult.need_2fa ?? false,
     qr_code: apiResult.qr_code,
   }
 }

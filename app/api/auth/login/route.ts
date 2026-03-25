@@ -18,12 +18,13 @@ export async function POST(req: Request) {
 
       console.log("[v0] Login check result:", {
         uid: loginResult.uid,
-        totp_enabled: loginResult.totp_enabled,
+        need_2fa: loginResult.need_2fa,
         has_session: !!loginResult.session_id,
       })
 
-      // If 2FA is enabled, return the 2FA required flag with session info
-      if (loginResult.totp_enabled) {
+      // If 2FA is required, return the 2FA required flag with session info
+      if (loginResult.need_2fa) {
+        console.log("[v0] 2FA required for user:", loginResult.uid)
         return Response.json(
           {
             success: false,
