@@ -99,14 +99,6 @@ export function ChatMessage({ message }: ChatMessageProps) {
           })}
         </div>
       </div>
-
-      {isUser && (
-        <Avatar className="size-8 shrink-0 border border-border">
-          <AvatarFallback className="bg-secondary text-secondary-foreground">
-            <User className="size-4" />
-          </AvatarFallback>
-        </Avatar>
-      )}
     </div>
   )
 }
