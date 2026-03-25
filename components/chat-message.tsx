@@ -1,8 +1,9 @@
 import { UIMessage } from "ai"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Bot, User } from "lucide-react"
 import { ToolOutput } from "@/components/tool-output"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/components/auth-provider"
 
 interface ChatMessageProps {
   message: UIMessage
@@ -10,6 +11,7 @@ interface ChatMessageProps {
 
 export function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.role === "user"
+  const { user } = useAuth()
 
   return (
     <div
@@ -32,6 +34,17 @@ export function ChatMessage({ message }: ChatMessageProps) {
               type="video/mp4"
             />
           </video>
+        </div>
+      )}
+
+      {isUser && (
+        <div className="flex gap-3 flex-row-reverse">
+          <Avatar className="size-8 shrink-0 border-2 border-primary/40 ring-1 ring-primary/20">
+            <AvatarImage src={user?.image} alt={user?.name} />
+            <AvatarFallback className="bg-gradient-to-br from-primary to-secondary text-background text-xs font-semibold">
+              {user?.name?.[0]?.toUpperCase() || "U"}
+            </AvatarFallback>
+          </Avatar>
         </div>
       )}
 
