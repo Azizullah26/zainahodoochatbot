@@ -13,7 +13,6 @@ import { Button } from "@/components/ui/button"
 import { Field, FieldGroup, FieldLabel, FieldError } from "@/components/ui/field"
 import { Spinner } from "@/components/ui/spinner"
 import { AlertCircle } from "lucide-react"
-import { OTPVerificationModal } from "@/components/otp-verification-modal"
 
 export function LoginForm() {
   const { login } = useAuth()
@@ -22,10 +21,11 @@ export function LoginForm() {
   const [error, setError] = useState("")
   const [isPending, setIsPending] = useState(false)
   const [requires2FA, setRequires2FA] = useState(false)
-  const [otpLoading, setOtpLoading] = useState(false)
-  const [otpError, setOtpError] = useState<string | null>(null)
   const [sessionId, setSessionId] = useState<string>("")
   const [userId, setUserId] = useState<number>(0)
+  const [otp, setOtp] = useState("")
+  const [otpLoading, setOtpLoading] = useState(false)
+  const [otpError, setOtpError] = useState("")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -43,7 +43,6 @@ export function LoginForm() {
 
       if (!response.ok) {
         if (data.requires2FA) {
-          console.log("[v0] 2FA required - sessionId:", data.sessionId?.slice(0, 8), "userId:", data.userId)
           setSessionId(data.sessionId)
           setUserId(data.userId)
           setRequires2FA(true)
@@ -61,72 +60,160 @@ export function LoginForm() {
     }
   }
 
-  const handleOTPSubmit = async (otp: string) => {
-    console.log("[v0] handleOTPSubmit called with otp:", otp)
+  const handleOTPSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!otp || otp.length !== 6) {
+      setOtpError("Please enter a valid 6-digit code")
+      return
+    }
+
     setOtpLoading(true)
-    setOtpError(null)
+    setOtpError("")
 
     try {
-      console.log("[v0] Submitting OTP - sessionId:", sessionId?.slice(0, 8), "userId:", userId, "otp:", otp)
-      
       if (!sessionId || !userId) {
-        throw new Error("Missing session information. Please login again.")
+        throw new Error("Session information missing. Please login again.")
       }
-
-      const requestBody = { sessionId, otp, userId }
-      console.log("[v0] OTP request body:", JSON.stringify(requestBody).replace(sessionId, "[REDACTED]"))
       
       const response = await fetch("/api/auth/verify-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({ sessionId, otp, userId }),
       })
 
-      console.log("[v0] OTP response status:", response.status)
-      const data = await response.json().catch(e => {
-        console.log("[v0] Failed to parse OTP response as JSON:", e)
-        throw new Error("Invalid response from server")
-      })
-      console.log("[v0] OTP response data:", data)
+      const data = await response.json()
 
       if (!response.ok) {
-        const errorMsg = data.error || `OTP verification failed (HTTP ${response.status})`
-        console.log("[v0] OTP verification failed:", errorMsg)
-        throw new Error(errorMsg)
+        throw new Error(data.error || "OTP verification failed")
       }
 
-      console.log("[v0] OTP verification successful, logging in user")
-      
-      // OTP verified, now complete the login
+      // OTP verified, complete the login
       await login(username, password)
+      
+      // Reset form and state
       setRequires2FA(false)
+      setOtp("")
+      setSessionId("")
+      setUserId(0)
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err)
-      console.log("[v0] OTP submission error:", errorMsg)
+      const errorMsg = err instanceof Error ? err.message : "OTP verification failed"
       setOtpError(errorMsg)
     } finally {
       setOtpLoading(false)
     }
   }
 
-  const handleOTPCancel = () => {
+  const handleCancelOTP = () => {
     setRequires2FA(false)
-    setOtpError(null)
-    setError("")
+    setOtp("")
     setSessionId("")
     setUserId(0)
+    setOtpError("")
+    setError("")
   }
 
+  // Show OTP screen
+  if (requires2FA) {
+    return (
+      <div className="relative min-h-dvh overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-background via-[#051428] to-[#0a2540] opacity-90" />
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl opacity-40 animate-pulse" />
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-secondary/10 rounded-full blur-3xl opacity-40 animate-pulse [animation-delay:1s]" />
+        
+        <div className="relative flex min-h-dvh items-center justify-center px-4">
+          <div className="w-full max-w-md">
+            <div className="mb-8 flex flex-col items-center gap-4">
+              <div className="text-center">
+                <h1 className="text-3xl font-bold text-balance bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                  Two-Factor Authentication
+                </h1>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Enter the 6-digit code from your Microsoft Authenticator
+                </p>
+              </div>
+            </div>
+
+            <Card className="relative border-primary/50 bg-background/30 backdrop-blur-xl shadow-2xl">
+              <CardContent className="pt-6">
+                <form onSubmit={handleOTPSubmit}>
+                  <FieldGroup>
+                    <Field>
+                      <FieldLabel htmlFor="otp" className="text-foreground/90">
+                        Verification Code
+                      </FieldLabel>
+                      <Input
+                        id="otp"
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="000000"
+                        value={otp}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, "").slice(0, 6)
+                          setOtp(val)
+                        }}
+                        maxLength={6}
+                        disabled={otpLoading}
+                        className="text-center text-2xl tracking-widest font-mono border-primary/40 bg-background/50"
+                        autoFocus
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {otp.length}/6 digits
+                      </p>
+                    </Field>
+
+                    {otpError && (
+                      <FieldError className="bg-destructive/10 border border-destructive/30 rounded-lg p-3">
+                        <span className="flex items-center gap-2 text-destructive">
+                          <AlertCircle className="size-4 shrink-0" />
+                          <span className="text-sm">{otpError}</span>
+                        </span>
+                      </FieldError>
+                    )}
+
+                    <div className="flex gap-3 pt-4">
+                      <Button
+                        type="submit"
+                        disabled={otpLoading || otp.length !== 6}
+                        className="flex-1 bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90"
+                      >
+                        {otpLoading ? (
+                          <>
+                            <Spinner className="size-4 mr-2" />
+                            Verifying...
+                          </>
+                        ) : (
+                          "Verify"
+                        )}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleCancelOTP}
+                        disabled={otpLoading}
+                        className="flex-1"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </FieldGroup>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Show login screen
   return (
     <div className="relative min-h-dvh overflow-hidden">
-      {/* Animated gradient background */}
       <div className="absolute inset-0 bg-gradient-to-br from-background via-[#051428] to-[#0a2540] opacity-90" />
       
-      {/* Glowing orbs for futuristic effect */}
       <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl opacity-40 animate-pulse" />
       <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-secondary/10 rounded-full blur-3xl opacity-40 animate-pulse [animation-delay:1s]" />
 
-      {/* Animated grid pattern */}
       <div className="absolute inset-0 opacity-10">
         <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
           <defs>
@@ -138,10 +225,8 @@ export function LoginForm() {
         </svg>
       </div>
 
-      {/* Main content */}
       <div className="relative flex min-h-dvh items-center justify-center px-4">
         <div className="w-full max-w-md">
-          {/* Title */}
           <div className="mb-8 flex flex-col items-center gap-4">
             <div className="text-center">
               <h1 className="text-4xl font-bold text-balance bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
@@ -156,7 +241,6 @@ export function LoginForm() {
             </div>
           </div>
 
-          {/* Glassmorphism Card */}
           <Card className="relative border-primary/50 bg-background/30 backdrop-blur-xl shadow-2xl glow-primary">
             <CardHeader className="pb-4">
               <CardDescription className="text-foreground/70">
@@ -238,17 +322,6 @@ export function LoginForm() {
           </p>
         </div>
       </div>
-
-      {/* OTP Verification Modal */}
-      <OTPVerificationModal
-        isOpen={requires2FA}
-        isLoading={otpLoading}
-        error={otpError}
-        sessionId={sessionId}
-        userId={userId}
-        onSubmit={handleOTPSubmit}
-        onCancel={handleOTPCancel}
-      />
     </div>
   )
 }
