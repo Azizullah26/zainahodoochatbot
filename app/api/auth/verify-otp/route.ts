@@ -29,6 +29,8 @@ export async function POST(request: NextRequest) {
     const cookieStore = await cookies()
     const sessionId = cookieStore.get("odoo_session_id")?.value
 
+    console.log("[v0] verify-otp: Reading cookie - sessionId found =", !!sessionId, "id =", sessionId?.slice(0, 8))
+
     if (!sessionId) {
       console.log("[v0] OTP verification failed: No session_id in cookie")
       return NextResponse.json(

@@ -31,9 +31,10 @@ export async function POST(req: Request) {
         const cookieStore = await cookies()
         cookieStore.set("odoo_session_id", loginResult.session_id, {
           httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "lax",
+          secure: true, // Always use secure=true for HTTPS deployments
+          sameSite: "strict", // Strict SameSite for security
           maxAge: 300, // 5 minutes
+          path: "/", // Ensure cookie is available to all routes
         })
         console.log("[v0] Stored odoo_session_id in HTTP-only cookie")
         
