@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from "next/server"
 import { verifyOTPToken, createSession } from "@/lib/auth"
+import { cookies } from "next/headers"
 
 interface OTPVerificationRequest {
-  sessionId: string
   otp: string
   userId: number
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { sessionId, otp, userId } = (await request.json()) as OTPVerificationRequest
+    const { otp, userId } = (await request.json()) as OTPVerificationRequest
 
-    if (!sessionId || !otp || !userId) {
+    if (!otp || !userId) {
       return NextResponse.json(
-        { error: "Session ID, OTP, and User ID are required" },
+        { error: "OTP and User ID are required" },
         { status: 400 }
       )
     }
@@ -25,6 +25,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Read session_id from HTTP-only cookie set during login
+    const cookieStore = await cookies()
+    const sessionId = cookieStore.get("odoo_session_id")?.value
+
+    if (!sessionId) {
+      console.log("[v0] OTP verification failed: No session_id in cookie")
+      return NextResponse.json(
+        { error: "Session expired. Please login again." },
+        { status: 401 }
+      )
+    }
+
     console.log("[v0] Verifying OTP for session:", sessionId.slice(0, 8), "userId:", userId)
 
     try {
@@ -33,6 +45,10 @@ export async function POST(request: NextRequest) {
 
       if (success) {
         console.log("[v0] OTP verification successful for userId:", userId)
+        
+        // Clear the OTP session cookie after successful verification
+        cookieStore.delete("odoo_session_id")
+        
         // Note: Session creation will be handled by the login form after successful OTP verification
         return NextResponse.json(
           {

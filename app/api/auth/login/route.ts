@@ -1,4 +1,5 @@
 import { checkLoginWith2FA, createSession } from "@/lib/auth"
+import { cookies } from "next/headers"
 
 export async function POST(req: Request) {
   try {
@@ -22,9 +23,20 @@ export async function POST(req: Request) {
         has_session: !!loginResult.session_id,
       })
 
-      // If 2FA is required, return the 2FA required flag with session info
+      // If 2FA is required, store the session_id in a cookie and return 2FA prompt
       if (loginResult.need_2fa) {
         console.log("[v0] 2FA required for user:", loginResult.uid)
+        
+        // Store session_id in HTTP-only cookie for OTP verification
+        const cookieStore = await cookies()
+        cookieStore.set("odoo_session_id", loginResult.session_id, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          maxAge: 300, // 5 minutes
+        })
+        console.log("[v0] Stored odoo_session_id in HTTP-only cookie")
+        
         return Response.json(
           {
             success: false,
