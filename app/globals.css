@@ -145,4 +145,13 @@
   .input-glow {
     @apply border-border/50 transition-all duration-300 focus:border-primary focus:shadow-md focus:shadow-primary/20;
   }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none; /* Chrome, Safari and Opera */
+  }
 }

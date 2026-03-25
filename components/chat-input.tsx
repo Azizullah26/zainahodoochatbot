@@ -44,7 +44,7 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
             placeholder="Ask about projects, employees, tasks..."
             rows={1}
             className={cn(
-              "w-full resize-none rounded-xl border border-primary/30 bg-background/50 px-4 py-3 pr-12 text-sm text-foreground input-glow",
+              "w-full resize-none rounded-xl border border-primary/30 bg-background/50 px-4 py-3 pr-12 text-sm text-foreground input-glow scrollbar-hide",
               "placeholder:text-muted-foreground/50",
               "focus:outline-none focus:border-primary focus:shadow-md focus:shadow-primary/20 focus:bg-background/70",
               "disabled:cursor-not-allowed disabled:opacity-50"
