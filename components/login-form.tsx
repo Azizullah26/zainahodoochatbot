@@ -61,9 +61,12 @@ export function LoginForm() {
   }
 
   const handleOTPSubmit = async (e: React.FormEvent) => {
+    console.log("[v0] OTP form submitted, e.preventDefault()...")
     e.preventDefault()
+    console.log("[v0] handleOTPSubmit called, otp value:", otp, "length:", otp.length)
     
     if (!otp || otp.length !== 6) {
+      console.log("[v0] OTP invalid - length:", otp.length)
       setOtpError("Please enter a valid 6-digit code")
       return
     }
@@ -73,8 +76,11 @@ export function LoginForm() {
 
     try {
       if (!sessionId || !userId) {
+        console.log("[v0] Missing session info - sessionId:", sessionId, "userId:", userId)
         throw new Error("Session information missing. Please login again.")
       }
+      
+      console.log("[v0] Calling verify-otp API with:", { sessionId: sessionId.slice(0, 8), otp, userId })
       
       const response = await fetch("/api/auth/verify-otp", {
         method: "POST",
@@ -82,12 +88,15 @@ export function LoginForm() {
         body: JSON.stringify({ sessionId, otp, userId }),
       })
 
+      console.log("[v0] OTP API response status:", response.status)
       const data = await response.json()
+      console.log("[v0] OTP API response:", data)
 
       if (!response.ok) {
         throw new Error(data.error || "OTP verification failed")
       }
 
+      console.log("[v0] OTP verified successfully, calling login...")
       // OTP verified, complete the login
       await login(username, password)
       
@@ -98,6 +107,7 @@ export function LoginForm() {
       setUserId(0)
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "OTP verification failed"
+      console.log("[v0] OTP error:", errorMsg)
       setOtpError(errorMsg)
     } finally {
       setOtpLoading(false)
