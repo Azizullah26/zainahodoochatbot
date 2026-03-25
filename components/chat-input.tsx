@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { ArrowUp, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { VoiceInput } from "@/components/voice-input"
 
 interface ChatInputProps {
   onSend: (text: string) => void
@@ -27,9 +28,17 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
     setInput("")
   }
 
+  const handleVoiceTranscript = (transcript: string) => {
+    setInput(transcript)
+  }
+
   return (
     <div className="border-t border-primary/20 bg-card/40 backdrop-blur-sm px-4 py-4">
       <div className="mx-auto flex max-w-3xl items-end gap-3">
+        <VoiceInput
+          onTranscript={handleVoiceTranscript}
+          disabled={isLoading}
+        />
         <div className="relative flex-1">
           <textarea
             ref={textareaRef}
