@@ -26,6 +26,22 @@ export const metadata: Metadata = {
     title: 'ELRACE Odoo ERP Assistant',
     description: 'AI-powered chatbot for intelligent Odoo ERP data querying and analysis',
     siteName: 'ELRACE',
+    images: [
+      {
+        url: 'https://elrace.com/RCC4/Requirements/IMG/rcclogo.PNG',
+        width: 1200,
+        height: 630,
+        alt: 'ELRACE Logo',
+        type: 'image/png',
+      },
+      {
+        url: 'https://elrace.com/RCC4/Requirements/IMG/rcclogo.PNG',
+        width: 800,
+        height: 600,
+        alt: 'ELRACE Logo',
+        type: 'image/png',
+      },
+    ],
   },
   icons: {
     icon: [
