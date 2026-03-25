@@ -68,10 +68,10 @@ export function LoginForm() {
             </div>
             <div className="text-center">
               <h1 className="text-4xl font-bold text-balance bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                SPACE
+                Elrace AI
               </h1>
               <p className="mt-2 text-lg font-semibold text-foreground">
-                Welcome Back
+                Odoo Assistant
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
                 Query projects, employees, tasks & more
