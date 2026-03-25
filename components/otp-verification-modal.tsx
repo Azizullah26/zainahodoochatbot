@@ -16,6 +16,8 @@ interface OTPVerificationModalProps {
   isOpen: boolean
   isLoading: boolean
   error: string | null
+  sessionId?: string
+  userId?: number
   onSubmit: (otp: string) => Promise<void>
   onCancel: () => void
 }
@@ -24,6 +26,8 @@ export function OTPVerificationModal({
   isOpen,
   isLoading,
   error,
+  sessionId,
+  userId,
   onSubmit,
   onCancel,
 }: OTPVerificationModalProps) {

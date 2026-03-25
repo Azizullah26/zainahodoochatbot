@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from "next/server"
+import { verifyOTPToken, createSession } from "@/lib/auth"
 
 interface OTPVerificationRequest {
-  email: string
+  sessionId: string
   otp: string
+  userId: number
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, otp } = (await request.json()) as OTPVerificationRequest
+    const { sessionId, otp, userId } = (await request.json()) as OTPVerificationRequest
 
-    if (!email || !otp) {
+    if (!sessionId || !otp || !userId) {
       return NextResponse.json(
-        { error: "Email and OTP are required" },
+        { error: "Session ID, OTP, and User ID are required" },
         { status: 400 }
       )
     }
@@ -23,59 +25,35 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const odooUrl = process.env.NEXT_PUBLIC_ODOO_URL
-    if (!odooUrl) {
-      console.error("[v0] NEXT_PUBLIC_ODOO_URL not configured")
-      return NextResponse.json(
-        { error: "Server configuration error" },
-        { status: 500 }
-      )
-    }
+    console.log("[v0] Verifying OTP for session:", sessionId.slice(0, 8), "userId:", userId)
 
-    // Call Odoo API to verify OTP
-    // This endpoint should handle 2FA OTP validation
-    const response = await fetch(`${odooUrl}/api/auth/verify-2fa`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email,
-        otp,
-      }),
-    })
+    try {
+      // Call Odoo's custom OTP verification endpoint
+      const success = await verifyOTPToken(sessionId, otp, userId)
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      console.error("[v0] OTP verification failed:", errorData)
-
-      if (response.status === 401) {
+      if (success) {
+        console.log("[v0] OTP verification successful for userId:", userId)
+        // Note: Session creation will be handled by the login form after successful OTP verification
         return NextResponse.json(
-          { error: "Invalid or expired OTP. Please try again." },
-          { status: 401 }
+          {
+            success: true,
+            message: "OTP verified successfully",
+          },
+          { status: 200 }
         )
       }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "OTP verification failed"
+      console.log("[v0] OTP verification error:", errorMessage)
 
       return NextResponse.json(
         {
-          error:
-            errorData?.error ||
-            "Failed to verify OTP. Please check your code and try again.",
+          success: false,
+          error: errorMessage,
         },
-        { status: response.status }
+        { status: 401 }
       )
     }
-
-    const data = await response.json()
-
-    return NextResponse.json(
-      {
-        success: true,
-        session: data.session,
-        user: data.user,
-      },
-      { status: 200 }
-    )
   } catch (error) {
     console.error("[v0] OTP verification error:", error)
     return NextResponse.json(

@@ -100,6 +100,116 @@ export async function destroySession(): Promise<void> {
 
 // ─── Odoo authentication ────────────────────────────────────────────
 
+export interface LoginCheckResponse {
+  uid: number
+  session_id: string
+  totp_enabled: boolean
+  qr_code?: string
+}
+
+export async function checkLoginWith2FA(
+  username: string,
+  password: string
+): Promise<LoginCheckResponse> {
+  if (!ODOO_URL) throw new Error("ODOO_URL environment variable is not set")
+  if (!ODOO_DB) throw new Error("ODOO_DB environment variable is not set")
+
+  const response = await fetch(`${ODOO_URL}/web/login/check_2fa`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      method: "call",
+      params: {
+        db: ODOO_DB,
+        login: username,
+        password: password,
+      },
+      id: Math.floor(Math.random() * 1000),
+    }),
+    signal: AbortSignal.timeout(15000),
+  })
+
+  if (!response.ok) throw new Error(`Odoo returned HTTP ${response.status}`)
+
+  const data = await response.json()
+  console.log("[v0] checkLoginWith2FA response:", JSON.stringify(data).slice(0, 300))
+
+  // Handle nested result structure
+  let apiResult = data.result
+  if (apiResult && apiResult.result) {
+    apiResult = apiResult.result // Unwrap nested result
+  }
+
+  if (data.error) {
+    const errorMsg = data.error.data?.message ?? data.error.message ?? "Authentication failed"
+    console.log("[v0] Odoo 2FA check error:", errorMsg)
+    throw new Error(errorMsg)
+  }
+
+  if (!apiResult?.uid || !apiResult?.session_id) {
+    console.log("[v0] Invalid login response:", JSON.stringify(apiResult))
+    throw new Error(apiResult?.error || "Invalid credentials")
+  }
+
+  return {
+    uid: apiResult.uid,
+    session_id: apiResult.session_id,
+    totp_enabled: apiResult.totp_enabled ?? false,
+    qr_code: apiResult.qr_code,
+  }
+}
+
+export async function verifyOTPToken(
+  sessionId: string,
+  otp: string,
+  userId: number
+): Promise<boolean> {
+  if (!ODOO_URL) throw new Error("ODOO_URL environment variable is not set")
+
+  const response = await fetch(`${ODOO_URL}/web/login/verify_otp`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      method: "call",
+      params: {
+        session_id: sessionId,
+        otp: otp,
+        user_id: userId,
+      },
+      id: Math.floor(Math.random() * 1000),
+    }),
+    signal: AbortSignal.timeout(15000),
+  })
+
+  if (!response.ok) throw new Error(`Odoo returned HTTP ${response.status}`)
+
+  const data = await response.json()
+  console.log("[v0] verifyOTPToken response:", JSON.stringify(data).slice(0, 200))
+
+  // Handle nested result structure
+  let apiResult = data.result
+  if (apiResult && apiResult.result) {
+    apiResult = apiResult.result // Unwrap nested result
+  }
+
+  if (data.error) {
+    const errorMsg = data.error.data?.message ?? data.error.message ?? "OTP verification failed"
+    console.log("[v0] OTP verification error:", errorMsg)
+    throw new Error(errorMsg)
+  }
+
+  if (!apiResult?.success) {
+    console.log("[v0] OTP verification failed:", JSON.stringify(apiResult))
+    throw new Error(apiResult?.error || "Invalid or expired OTP")
+  }
+
+  return true
+}
+
 export async function authenticateWithOdoo(
   username: string,
   password: string

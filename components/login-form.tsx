@@ -24,6 +24,8 @@ export function LoginForm() {
   const [requires2FA, setRequires2FA] = useState(false)
   const [otpLoading, setOtpLoading] = useState(false)
   const [otpError, setOtpError] = useState<string | null>(null)
+  const [sessionId, setSessionId] = useState<string>("")
+  const [userId, setUserId] = useState<number>(0)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -41,6 +43,9 @@ export function LoginForm() {
 
       if (!response.ok) {
         if (data.requires2FA) {
+          console.log("[v0] 2FA required - sessionId:", data.sessionId?.slice(0, 8), "userId:", data.userId)
+          setSessionId(data.sessionId)
+          setUserId(data.userId)
           setRequires2FA(true)
           setError("")
           setIsPending(false)
@@ -61,10 +66,12 @@ export function LoginForm() {
     setOtpError(null)
 
     try {
+      console.log("[v0] Submitting OTP - sessionId:", sessionId?.slice(0, 8), "userId:", userId)
+      
       const response = await fetch("/api/auth/verify-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: username, otp }),
+        body: JSON.stringify({ sessionId, otp, userId }),
       })
 
       const data = await response.json()
@@ -73,6 +80,8 @@ export function LoginForm() {
         throw new Error(data.error || "OTP verification failed")
       }
 
+      console.log("[v0] OTP verification successful, logging in user")
+      
       // OTP verified, now complete the login
       await login(username, password)
       setRequires2FA(false)
@@ -87,6 +96,8 @@ export function LoginForm() {
     setRequires2FA(false)
     setOtpError(null)
     setError("")
+    setSessionId("")
+    setUserId(0)
   }
 
   return (
@@ -216,6 +227,8 @@ export function LoginForm() {
         isOpen={requires2FA}
         isLoading={otpLoading}
         error={otpError}
+        sessionId={sessionId}
+        userId={userId}
         onSubmit={handleOTPSubmit}
         onCancel={handleOTPCancel}
       />
