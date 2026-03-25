@@ -61,18 +61,8 @@ export function LoginForm() {
       {/* Main content */}
       <div className="relative flex min-h-dvh items-center justify-center px-4">
         <div className="w-full max-w-md">
-          {/* Logo and Title */}
+          {/* Title */}
           <div className="mb-8 flex flex-col items-center gap-4">
-            <div className="relative flex items-center justify-center ring-2 ring-primary/50 max-w-xs">
-              <Image
-                src="/logo.png"
-                alt="ELRACE Logo"
-                width={180}
-                height={80}
-                priority
-                className="h-auto w-full object-contain"
-              />
-            </div>
             <div className="text-center">
               <h1 className="text-4xl font-bold text-balance bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
                 ELRACE
