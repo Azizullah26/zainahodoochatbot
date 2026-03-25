@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { useAuth } from "@/components/auth-provider"
-import { Building2 } from "lucide-react"
 import {
   Card,
   CardContent,
@@ -14,7 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Field, FieldGroup, FieldLabel, FieldError } from "@/components/ui/field"
 import { Spinner } from "@/components/ui/spinner"
-import { AlertCircle } from "lucide-react"
+import { Database, AlertCircle } from "lucide-react"
 
 export function LoginForm() {
   const { login } = useAuth()
@@ -42,11 +41,11 @@ export function LoginForm() {
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-3">
           <div className="flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg">
-            <Building2 className="size-7" />
+            <Database className="size-7" />
           </div>
           <div className="text-center">
             <h1 className="text-3xl font-bold text-foreground text-balance">
-              Elrace Odoo | Assistant
+              Odoo ERP Assistant
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
               Query projects, employees, tasks & more
