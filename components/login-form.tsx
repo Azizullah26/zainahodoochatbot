@@ -1,8 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import Image from "next/image"
 import { useAuth } from "@/components/auth-provider"
+import { Building2 } from "lucide-react"
 import {
   Card,
   CardContent,
@@ -41,15 +41,8 @@ export function LoginForm() {
     <div className="flex min-h-dvh items-center justify-center bg-gradient-to-br from-background to-secondary px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-3">
-          <div className="flex size-14 items-center justify-center rounded-2xl overflow-hidden shadow-lg">
-            <Image
-              src="https://elrace.com/RCC4/Requirements/IMG/rcclogo.PNG"
-              alt="Elrace Logo"
-              width={56}
-              height={56}
-              className="w-full h-full object-contain"
-              priority
-            />
+          <div className="flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg">
+            <Building2 className="size-7" />
           </div>
           <div className="text-center">
             <h1 className="text-3xl font-bold text-foreground text-balance">

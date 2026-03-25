@@ -1,11 +1,10 @@
 "use client"
 
 import { useAuth } from "@/components/auth-provider"
-import { LogOut, Zap } from "lucide-react"
+import { LogOut, Zap, Building2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import Image from "next/image"
 
 function getInitials(name: string): string {
   return name
@@ -22,15 +21,8 @@ export function ChatHeader() {
   return (
     <header className="flex items-center justify-between border-b border-border bg-card px-6 py-3">
       <div className="flex items-center gap-3">
-        <div className="flex size-10 items-center justify-center rounded-lg overflow-hidden">
-          <Image
-            src="https://elrace.com/RCC4/Requirements/IMG/rcclogo.PNG"
-            alt="Elrace Logo"
-            width={40}
-            height={40}
-            className="w-full h-full object-contain"
-            priority
-          />
+        <div className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+          <Building2 className="size-5" />
         </div>
         <div>
           <h1 className="text-lg font-semibold text-foreground text-balance">
