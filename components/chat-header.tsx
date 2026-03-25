@@ -22,16 +22,6 @@ export function ChatHeader() {
   return (
     <header className="flex items-center justify-between border-b border-primary/20 bg-card/40 backdrop-blur-sm px-6 py-4">
       <div className="flex items-center gap-4">
-        <div className="flex items-center justify-center overflow-hidden ring-2 ring-primary/30 glow-primary aspect-video">
-          <Image
-            src="/logo.png"
-            alt="ELRACE RCC Logo"
-            width={80}
-            height={40}
-            className="h-full w-auto object-contain"
-            priority
-          />
-        </div>
         <div>
           <h1 className="text-lg font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent text-balance">
             ELRACE Odoo Assistant
