@@ -149,16 +149,6 @@ export function LoginForm() {
                       )}
                     </Button>
                   </div>
-
-                  <div className="pt-2 text-center text-sm">
-                    <span className="text-muted-foreground">Don't have an account? </span>
-                    <button
-                      type="button"
-                      className="text-primary hover:text-accent transition-colors font-semibold"
-                    >
-                      Sign Up
-                    </button>
-                  </div>
                 </FieldGroup>
               </form>
             </CardContent>
