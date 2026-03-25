@@ -9,6 +9,9 @@ import {
   Contact,
   Clock,
   Zap,
+  Calendar,
+  FileText,
+  Receipt,
   type LucideIcon,
 } from "lucide-react"
 
@@ -50,6 +53,30 @@ const allSuggestions: Suggestion[] = [
     query: "Show recent timesheet entries",
     requiredTool: "getTimesheets",
   },
+  {
+    label: "My Requests",
+    icon: FileText,
+    query: "Show me my pending requests",
+    requiredTool: "getRequests",
+  },
+  {
+    label: "My Annual Leave Request",
+    icon: Calendar,
+    query: "Show my annual leave requests and balance",
+    requiredTool: "getLeaveRequests",
+  },
+  {
+    label: "My Sick Leave Request",
+    icon: Calendar,
+    query: "Show my sick leave requests",
+    requiredTool: "getLeaveRequests",
+  },
+  {
+    label: "My Expenses",
+    icon: Receipt,
+    query: "Show my submitted expenses and reimbursements",
+    requiredTool: "getExpenses",
+  },
 ]
 
 interface ChatSuggestionsProps {
@@ -78,20 +105,6 @@ export function ChatSuggestions({ onSelect }: ChatSuggestionsProps) {
             Signed in as {user.name}
           </p>
         )}
-      </div>
-
-      {/* My Requests Filter Bar */}
-      <div className="flex items-center justify-center gap-3">
-        <div className="flex size-10 items-center justify-center rounded-full bg-primary text-primary-foreground ring-2 ring-primary/30">
-          <Zap className="size-5" />
-        </div>
-        <Button
-          variant="outline"
-          className="rounded-full px-6 border-primary/50 bg-primary/10 hover:bg-primary/20 text-primary font-semibold"
-          disabled
-        >
-          My requests
-        </Button>
       </div>
 
       <div className="flex flex-wrap justify-center gap-2">
