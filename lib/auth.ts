@@ -190,13 +190,7 @@ export async function verifyOTPToken(
   if (!response.ok) throw new Error(`Odoo returned HTTP ${response.status}`)
 
   const data = await response.json()
-  console.log("[v0] verifyOTPToken response:", JSON.stringify(data).slice(0, 200))
-
-  // Handle nested result structure
-  let apiResult = data.result
-  if (apiResult && apiResult.result) {
-    apiResult = apiResult.result // Unwrap nested result
-  }
+  console.log("[v0] verifyOTPToken raw response:", JSON.stringify(data).slice(0, 300))
 
   if (data.error) {
     const errorMsg = data.error.data?.message ?? data.error.message ?? "OTP verification failed"
@@ -204,11 +198,23 @@ export async function verifyOTPToken(
     throw new Error(errorMsg)
   }
 
+  // Handle deeply nested result structure: result.result.result.success
+  let apiResult = data.result
+  if (apiResult && apiResult.result) {
+    apiResult = apiResult.result // First unwrap: result.result
+  }
+  if (apiResult && apiResult.result) {
+    apiResult = apiResult.result // Second unwrap: result.result.result
+  }
+
+  console.log("[v0] OTP verification result after unwrapping:", JSON.stringify(apiResult).slice(0, 200))
+
   if (!apiResult?.success) {
-    console.log("[v0] OTP verification failed:", JSON.stringify(apiResult))
+    console.log("[v0] OTP verification failed - success is false or missing:", JSON.stringify(apiResult))
     throw new Error(apiResult?.error || "Invalid or expired OTP")
   }
 
+  console.log("[v0] OTP verification successful!")
   return true
 }
 
