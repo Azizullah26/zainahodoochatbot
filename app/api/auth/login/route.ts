@@ -24,14 +24,22 @@ export async function POST(req: Request) {
       })
     } catch (authError) {
       const errorMessage = authError instanceof Error ? authError.message : "Authentication failed"
+      console.log("[v0] Login error:", errorMessage)
       
       // Check if 2FA is required (Odoo returns specific error for 2FA)
+      // Common Odoo 2FA error messages:
+      // - "Access Denied: Verification code required"
+      // - "Verification code required"
+      // - "2FA verification required"
+      // - "TOTP verification required"
       if (
-        errorMessage.includes("2FA") ||
-        errorMessage.includes("two-factor") ||
-        errorMessage.includes("OTP") ||
-        errorMessage.includes("verification code")
+        errorMessage.toLowerCase().includes("verification") ||
+        errorMessage.toLowerCase().includes("2fa") ||
+        errorMessage.toLowerCase().includes("two-factor") ||
+        errorMessage.toLowerCase().includes("totp") ||
+        errorMessage.toLowerCase().includes("authenticator")
       ) {
+        console.log("[v0] 2FA required detected")
         return Response.json(
           {
             success: false,
@@ -47,6 +55,7 @@ export async function POST(req: Request) {
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Authentication failed"
+    console.log("[v0] Login endpoint error:", message)
     return Response.json({ success: false, error: message }, { status: 401 })
   }
 }

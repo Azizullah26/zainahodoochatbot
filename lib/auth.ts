@@ -121,9 +121,12 @@ export async function authenticateWithOdoo(
   if (!response.ok) throw new Error(`Odoo returned HTTP ${response.status}`)
 
   const data = await response.json()
+  console.log("[v0] authenticateWithOdoo response:", JSON.stringify(data).slice(0, 200))
 
   if (data.error) {
-    throw new Error(data.error.data?.message ?? data.error.message ?? "Authentication failed")
+    const errorMsg = data.error.data?.message ?? data.error.message ?? "Authentication failed"
+    console.log("[v0] Odoo error:", errorMsg)
+    throw new Error(errorMsg)
   }
 
   const result = data.result
