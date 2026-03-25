@@ -26,8 +26,9 @@ export function ChatHeader() {
           <Image
             src="/logo.png"
             alt="ELRACE Logo"
-            width={30}
-            height={15}
+            width={45}
+            height={22}
+            className="h-auto w-auto"
             priority
           />
         </div>

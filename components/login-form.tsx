@@ -67,9 +67,10 @@ export function LoginForm() {
               <Image
                 src="/logo.png"
                 alt="ELRACE Logo"
-                width={70}
-                height={35}
+                width={120}
+                height={60}
                 priority
+                className="h-auto w-auto"
               />
             </div>
             <div className="text-center">
