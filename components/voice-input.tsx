@@ -11,6 +11,14 @@ interface VoiceInputProps {
   compact?: boolean
 }
 
+// Type definitions for Web Speech API
+declare global {
+  interface Window {
+    SpeechRecognition: any
+    webkitSpeechRecognition: any
+  }
+}
+
 export function VoiceInput({ onTranscript, disabled = false, compact = false }: VoiceInputProps) {
   const [isListening, setIsListening] = useState(false)
   const [isSupported, setIsSupported] = useState(true)
@@ -22,7 +30,8 @@ export function VoiceInput({ onTranscript, disabled = false, compact = false }: 
   useEffect(() => {
     // Check browser support for Web Speech API
     const SpeechRecognition =
-      window.SpeechRecognition || (window as any).webkitSpeechRecognition
+      (typeof window !== "undefined" && window.SpeechRecognition) ||
+      (typeof window !== "undefined" && (window as any).webkitSpeechRecognition)
 
     if (!SpeechRecognition) {
       setIsSupported(false)
