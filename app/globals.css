@@ -154,4 +154,19 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none; /* Chrome, Safari and Opera */
   }
+
+  /* Hide form control buttons from inputs and textareas */
+  input::-webkit-outer-spin-button,
+  input::-webkit-inner-spin-button,
+  textarea::-webkit-outer-spin-button,
+  textarea::-webkit-inner-spin-button,
+  textarea::-webkit-calendar-picker-indicator {
+    -webkit-appearance: none;
+    margin: 0;
+    display: none;
+  }
+
+  input[type=number] {
+    -moz-appearance: textfield;
+  }
 }
