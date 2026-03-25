@@ -2,6 +2,7 @@
 
 import { useAuth } from "@/components/auth-provider"
 import { Button } from "@/components/ui/button"
+import Image from "next/image"
 import {
   FolderKanban,
   Users,
@@ -65,6 +66,17 @@ export function ChatSuggestions({ onSelect }: ChatSuggestionsProps) {
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6">
+      <div className="flex flex-col items-center gap-4">
+        <Image
+          src="/logo.png"
+          alt="ELRACE Logo"
+          width={140}
+          height={70}
+          className="h-auto w-auto"
+          priority
+        />
+      </div>
+
       <div className="text-center">
         <h2 className="text-xl font-semibold text-foreground text-balance">
           What would you like to know?
