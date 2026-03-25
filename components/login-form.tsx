@@ -62,11 +62,12 @@ export function LoginForm() {
   }
 
   const handleOTPSubmit = async (otp: string) => {
+    console.log("[v0] handleOTPSubmit called with otp:", otp)
     setOtpLoading(true)
     setOtpError(null)
 
     try {
-      console.log("[v0] Submitting OTP - sessionId:", sessionId?.slice(0, 8), "userId:", userId)
+      console.log("[v0] Submitting OTP - sessionId:", sessionId?.slice(0, 8), "userId:", userId, "otp:", otp)
       
       const response = await fetch("/api/auth/verify-otp", {
         method: "POST",
@@ -74,7 +75,9 @@ export function LoginForm() {
         body: JSON.stringify({ sessionId, otp, userId }),
       })
 
+      console.log("[v0] OTP response status:", response.status)
       const data = await response.json()
+      console.log("[v0] OTP response data:", data)
 
       if (!response.ok) {
         throw new Error(data.error || "OTP verification failed")
@@ -86,6 +89,7 @@ export function LoginForm() {
       await login(username, password)
       setRequires2FA(false)
     } catch (err) {
+      console.log("[v0] OTP submission error:", err)
       setOtpError(err instanceof Error ? err.message : "OTP verification failed")
     } finally {
       setOtpLoading(false)

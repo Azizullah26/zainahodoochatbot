@@ -35,8 +35,12 @@ export function OTPVerificationModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    console.log("[v0] OTP modal handleSubmit called with otp:", otp, "length:", otp.length)
     if (otp.trim().length === 6) {
+      console.log("[v0] OTP valid, calling onSubmit")
       await onSubmit(otp.trim())
+    } else {
+      console.log("[v0] OTP invalid - length:", otp.trim().length)
     }
   }
 
