@@ -69,18 +69,30 @@ export function LoginForm() {
     try {
       console.log("[v0] Submitting OTP - sessionId:", sessionId?.slice(0, 8), "userId:", userId, "otp:", otp)
       
+      if (!sessionId || !userId) {
+        throw new Error("Missing session information. Please login again.")
+      }
+
+      const requestBody = { sessionId, otp, userId }
+      console.log("[v0] OTP request body:", JSON.stringify(requestBody).replace(sessionId, "[REDACTED]"))
+      
       const response = await fetch("/api/auth/verify-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId, otp, userId }),
+        body: JSON.stringify(requestBody),
       })
 
       console.log("[v0] OTP response status:", response.status)
-      const data = await response.json()
+      const data = await response.json().catch(e => {
+        console.log("[v0] Failed to parse OTP response as JSON:", e)
+        throw new Error("Invalid response from server")
+      })
       console.log("[v0] OTP response data:", data)
 
       if (!response.ok) {
-        throw new Error(data.error || "OTP verification failed")
+        const errorMsg = data.error || `OTP verification failed (HTTP ${response.status})`
+        console.log("[v0] OTP verification failed:", errorMsg)
+        throw new Error(errorMsg)
       }
 
       console.log("[v0] OTP verification successful, logging in user")
@@ -89,8 +101,9 @@ export function LoginForm() {
       await login(username, password)
       setRequires2FA(false)
     } catch (err) {
-      console.log("[v0] OTP submission error:", err)
-      setOtpError(err instanceof Error ? err.message : "OTP verification failed")
+      const errorMsg = err instanceof Error ? err.message : String(err)
+      console.log("[v0] OTP submission error:", errorMsg)
+      setOtpError(errorMsg)
     } finally {
       setOtpLoading(false)
     }
