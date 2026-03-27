@@ -222,7 +222,7 @@ function createTools(uid: number, password: string, allowedModels: string[]) {
               params: {
                 service: "object",
                 method: "name_search",
-                args: [process.env.ODOO_DB, uid, password, model, name, domain || [], "ilike", limit],
+                args: [process.env.ODOO_DB, uid, password, model, name, [], "ilike", limit || 10],
               },
             }),
           })
