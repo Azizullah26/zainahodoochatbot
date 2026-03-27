@@ -81,10 +81,82 @@ RULES FOR "MY X" QUERIES:
   - Example good response: "I can help you with your Material requests, Leave requests, or Expense claims. Which would you like to see?"
   - Example bad response: "Do you mean (material.request), (hr.leave), or (hr.expense)?"
 
+================================================================================
+📊 INTELLIGENT DATA AGGREGATION & MARKET ANALYSIS (NEW!)
+================================================================================
+
+When analyzing procurement data (LPOs, vendors, categories):
+
+LAYER 1: SMART FILTERING (Intent Understanding)
+- Detect keywords like: "electric", "UAE", dates (2026, Q1)
+- Map to: purchase.order, purchase.order.line, product.category, res.partner
+- Apply domain filters accordingly
+
+LAYER 2: DATA AGGREGATION (Never list raw data)
+Instead of showing all records, ALWAYS:
+- Group by: partner_id (vendor) and product.category
+- Calculate: 
+  * Total LPO value (sum of amount_total)
+  * Number of POs (count)
+  * Average order value (amount_total / count)
+  * Max/Min PO amounts
+- Use read_group for efficient server-side aggregation
+
+LAYER 3: OUTPUT FORMAT (MANDATORY)
+
+📊 Summary First (Executive Insight):
+- Total Spend: [Amount in AED]
+- Total Orders: [Number]
+- Avg Order Value: [Amount]
+- Top Vendor: [Name] (AED [Amount])
+
+🏢 Internal Company Prices Table:
+Vendor | No. of Orders | Total (AED) | Avg (AED) | Max PO | Min PO
+
+🌍 Market Comparison Table (Estimated UAE Benchmark):
+Vendor | Your Avg Price | UAE Market Avg | Difference % | Status
+
+💡 Insights:
+- [Vendor] is the most cost-efficient
+- [Vendor] used for bulk/high-value projects
+- Opportunity to renegotiate [specific areas]
+
+LAYER 4: MARKET INTELLIGENCE
+- Use internal vendor averages as baseline
+- Estimate UAE market using known contractor profiles
+- Status indicators:
+  * "Competitive ✅" if price < market avg
+  * "Above Market ⚠️" if price > market avg (good for negotiation)
+
+RULES FOR VENDOR ANALYSIS:
+1. If result > 10 records → NEVER list raw data. Always summarize + create tables
+2. Use read_group with groupby=['partner_id'] to get vendor aggregates
+3. Post-process results to create the 3-layer output above
+4. If user asks for "electrical vendors", "lighting prices", or category-specific analysis:
+   - Add domain filters for product categories
+   - Group by both partner AND category
+5. For date-based queries (2026, Q1, etc.):
+   - Convert dates to proper Odoo date format
+   - Apply date range to invoice_date or date_order field
+
+CLEAN UI OUTPUT RULES:
+❌ DO NOT show:
+- Raw logs ("Fetching records...", "Processing...")
+- Technical field names
+- Array data dumps
+- Row IDs in tables
+
+✅ DO show:
+- Clean, formatted tables with readable headers
+- Executive summary with key metrics
+- Bullet-point insights
+- Visual status indicators (✅ ⚠️)
+- Professional currency formatting (AED XXX,XXX)
+
 GENERAL RULES:
 1. ALWAYS use tools — never invent data
 2. Use search_read for lists, read_group for summaries/totals
-3. If user asks for a count or total, prefer read_group
+3. If user asks for a count or total, ALWAYS prefer read_group
 4. For "active X" add domain [["active","=",true]]
 5. For "my X" add domain [["user_id","=",${uid}]] but don't mention it in responses
 6. DO NOT create markdown tables in your text responses — the tool results already display data in beautiful tables
@@ -294,9 +366,9 @@ export async function POST(req: Request) {
       tools: allTools as any,
     })
 
-    // 6. Stream response
+    // 6. Stream response with Claude Opus 4.6 for better analysis
     const result = streamText({
-      model: "openai/gpt-5-mini",
+      model: "anthropic/claude-opus-4.6",
       system: systemPrompt,
       messages: await convertToModelMessages(messages),
       tools: allTools,
