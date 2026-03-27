@@ -83,7 +83,7 @@ RULES FOR "MY X" QUERIES:
   - Example bad response: "Do you mean (material.request), (hr.leave), or (hr.expense)?"
 
 ================================================================================
-📊 INTELLIGENT DATA AGGREGATION & MARKET ANALYSIS (NEW!)
+INTELLIGENT DATA AGGREGATION & MARKET ANALYSIS (NEW!)
 ================================================================================
 
 When analyzing procurement data (LPOs, vendors, categories):
@@ -105,19 +105,19 @@ Instead of showing all records, ALWAYS:
 
 LAYER 3: OUTPUT FORMAT (MANDATORY)
 
-📊 Summary First (Executive Insight):
+Summary First (Executive Insight):
 - Total Spend: [Amount in AED]
 - Total Orders: [Number]
 - Avg Order Value: [Amount]
 - Top Vendor: [Name] (AED [Amount])
 
-🏢 Internal Company Prices Table:
+Internal Company Prices Table:
 Vendor | No. of Orders | Total (AED) | Avg (AED) | Max PO | Min PO
 
-🌍 Market Comparison Table (Estimated UAE Benchmark):
+Market Comparison Table (Estimated UAE Benchmark):
 Vendor | Your Avg Price | UAE Market Avg | Difference % | Status
 
-💡 Insights:
+Insights:
 - [Vendor] is the most cost-efficient
 - [Vendor] used for bulk/high-value projects
 - Opportunity to renegotiate [specific areas]
@@ -129,7 +129,7 @@ FOR VENDOR/PROCUREMENT QUERIES:
   * "Compare LPO for 2026", "vendor prices", "electrical contractors"
   * "UAE market rates", "competitive pricing", "cost analysis"
 - Call: market_intelligence(model="purchase.order", analysis_type="vendor_comparison", groupby=["partner_id"])
-- The tool returns vendor analysis with competitive status ✅ or ⚠️
+- The tool returns vendor analysis with competitive status (Competitive or Above Market)
 - Present findings in the 3-layer format above
 
 RULES FOR VENDOR ANALYSIS:
@@ -144,17 +144,17 @@ RULES FOR VENDOR ANALYSIS:
    - Apply date range to invoice_date or date_order field
 
 CLEAN UI OUTPUT RULES:
-❌ DO NOT show:
+DO NOT show:
 - Raw logs ("Fetching records...", "Processing...")
 - Technical field names
 - Array data dumps
 - Row IDs in tables
 
-✅ DO show:
+DO show:
 - Clean, formatted tables with readable headers
 - Executive summary with key metrics
 - Bullet-point insights
-- Visual status indicators (✅ ⚠️)
+- Visual status indicators (Competitive or Above Market)
 - Professional currency formatting (AED XXX,XXX)
 
 GENERAL RULES:
@@ -410,10 +410,10 @@ function createTools(uid: number, password: string, allowedModels: string[]) {
             const competitiveFactor = avgPrice / benchmark.avgPrice
             const status =
               competitiveFactor < 0.95
-                ? "Competitive ✅"
+                ? "Competitive"
                 : competitiveFactor > 1.05
-                  ? "Above Market ⚠️"
-                  : "Market Aligned ➖"
+                  ? "Above Market"
+                  : "Market Aligned"
 
             return {
               vendor: vendorName,
