@@ -176,7 +176,7 @@ function createTools(uid: number, password: string, allowedModels: string[]) {
   return {
     name_search: tool({
       description: "Search for records by name, returns matching record IDs",
-      parameters: z.object({
+      inputSchema: z.object({
         model: z.string().describe("Odoo model name"),
         name: z.string().describe("Name to search for"),
         limit: z
@@ -219,7 +219,7 @@ function createTools(uid: number, password: string, allowedModels: string[]) {
 
     search_read: tool({
       description: "Fetch records from Odoo with filtering and search",
-      parameters: z.object({
+      inputSchema: z.object({
         model: z.string().describe("Odoo model name"),
         domain: z
           .array(z.array(z.unknown()))
@@ -267,7 +267,7 @@ function createTools(uid: number, password: string, allowedModels: string[]) {
 
     read_group: tool({
       description: "Aggregate records by grouping fields (totals, counts, averages)",
-      parameters: z.object({
+      inputSchema: z.object({
         model: z.string().describe("Odoo model name"),
         domain: z
           .array(z.array(z.unknown()))
@@ -319,7 +319,7 @@ function createTools(uid: number, password: string, allowedModels: string[]) {
 
     calculator: tool({
       description: "Simple math calculations",
-      parameters: z.object({
+      inputSchema: z.object({
         expression: z.string().describe("Math expression (e.g., '100 + 50', '1000 / 3')"),
       }),
       execute: ({ expression }) => {
@@ -336,7 +336,7 @@ function createTools(uid: number, password: string, allowedModels: string[]) {
     market_intelligence: tool({
       description:
         "Analyze vendor pricing data and compare with UAE market benchmarks. Provides competitive analysis and market positioning insights for procurement decisions.",
-      parameters: z.object({
+      inputSchema: z.object({
         model: z.string().describe("Odoo model to analyze (typically 'purchase.order')"),
         analysis_type: z
           .enum(["vendor_comparison", "category_analysis", "price_trends"])
