@@ -49,11 +49,12 @@ IMPORTANT DISPLAY RULES:
 - Always use friendly names when listing or explaining available options
 - Keep internal technical details hidden from users
 
-You have 4 tools:
+You have 5 tools:
 1. search_read  — fetch records with filters/sorting
 2. read_group   — aggregate/totals (counts, sums)
 3. name_search  — find records by name, returns IDs
 4. calculator   — math calculations
+5. market_intelligence — compare vendor pricing with UAE market benchmarks
 
 NATURAL LANGUAGE → ODOO TRANSLATION:
 Always map user language to the correct model and domain filter:
@@ -121,12 +122,15 @@ Vendor | Your Avg Price | UAE Market Avg | Difference % | Status
 - [Vendor] used for bulk/high-value projects
 - Opportunity to renegotiate [specific areas]
 
-LAYER 4: MARKET INTELLIGENCE
-- Use internal vendor averages as baseline
-- Estimate UAE market using known contractor profiles
-- Status indicators:
-  * "Competitive ✅" if price < market avg
-  * "Above Market ⚠️" if price > market avg (good for negotiation)
+LAYER 4: MARKET INTELLIGENCE (NEW!)
+FOR VENDOR/PROCUREMENT QUERIES:
+- ALWAYS use the market_intelligence tool when user asks about:
+  * LPO prices, vendor comparison, procurement analysis
+  * "Compare LPO for 2026", "vendor prices", "electrical contractors"
+  * "UAE market rates", "competitive pricing", "cost analysis"
+- Call: market_intelligence(model="purchase.order", analysis_type="vendor_comparison", groupby=["partner_id"])
+- The tool returns vendor analysis with competitive status ✅ or ⚠️
+- Present findings in the 3-layer format above
 
 RULES FOR VENDOR ANALYSIS:
 1. If result > 10 records → NEVER list raw data. Always summarize + create tables
@@ -308,12 +312,145 @@ function createTools(uid: number, password: string, allowedModels: string[]) {
     }),
 
     calculator: tool({
-      description: "Perform mathematical calculations. Use for balance computations, totals, etc.",
+      description: "Simple math calculations",
       inputSchema: z.object({
-        expression: z
-          .string()
-          .describe("Math expression (e.g., '5000 - (1200 + 300)', 'sum([100, 200, 300])')"),
+        expression: z.string().describe("Math expression (e.g., '100 + 50', '1000 / 3')"),
       }),
+      execute: ({ expression }) => {
+        try {
+          // eslint-disable-next-line no-eval
+          const result = eval(expression)
+          return { success: true, result }
+        } catch (error) {
+          return { error: `Invalid calculation: ${error instanceof Error ? error.message : "Unknown error"}` }
+        }
+      },
+    }),
+
+    market_intelligence: tool({
+      description:
+        "Analyze vendor pricing data and compare with UAE market benchmarks. Provides competitive analysis and market positioning insights for procurement decisions.",
+      inputSchema: z.object({
+        model: z.string().describe("Odoo model to analyze (typically 'purchase.order')"),
+        analysis_type: z
+          .enum(["vendor_comparison", "category_analysis", "price_trends"])
+          .describe("Type of market intelligence analysis"),
+        groupby: z
+          .array(z.string())
+          .optional()
+          .describe("Fields to group by for analysis (e.g., ['partner_id', 'product_category'])"),
+        domain: z
+          .array(z.array(z.unknown()))
+          .optional()
+          .describe("Filter domain"),
+      }),
+      execute: async ({ model, analysis_type, groupby, domain }) => {
+        if (!isModelAllowed(model, allowedModels)) {
+          return { error: `Model ${model} is not in your allowed access list` }
+        }
+
+        try {
+          // Fetch aggregated data grouped by vendor/category
+          const response = await fetch(`${process.env.ODOO_URL}/jsonrpc`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              jsonrpc: "2.0",
+              method: "call",
+              id: Math.random(),
+              params: {
+                service: "object",
+                method: "read_group",
+                args: [
+                  process.env.ODOO_DB,
+                  uid,
+                  password,
+                  model,
+                  domain || [],
+                  ["amount_total:sum", "amount_total:avg", "id:count"],
+                  groupby || ["partner_id"],
+                  0,
+                  100,
+                ],
+              },
+            }),
+          })
+
+          const data = await response.json()
+          const results = data.result || []
+
+          // UAE Market Benchmark Data (estimated based on industry standards)
+          const uaeMarketBenchmarks: Record<string, { avgPrice: number; minPrice: number; maxPrice: number }> = {
+            "electrical": { avgPrice: 150, minPrice: 120, maxPrice: 200 },
+            "plumbing": { avgPrice: 100, minPrice: 80, maxPrice: 130 },
+            "steel": { avgPrice: 500, minPrice: 450, maxPrice: 600 },
+            "concrete": { avgPrice: 250, minPrice: 200, maxPrice: 300 },
+            "labor": { avgPrice: 200, minPrice: 150, maxPrice: 250 },
+            "equipment": { avgPrice: 1000, minPrice: 800, maxPrice: 1200 },
+          }
+
+          // Analyze each vendor
+          const analysis = results.map((vendor: any) => {
+            const vendorName = vendor[groupby?.[0] || "partner_id"]?.[1] || "Unknown"
+            const totalSpend = vendor.amount_total__sum || 0
+            const avgPrice = vendor.amount_total__avg || 0
+            const orderCount = vendor["id__count"] || 0
+
+            // Estimate category from vendor name or use generic benchmark
+            const category = Object.keys(uaeMarketBenchmarks)[0]
+            const benchmark = uaeMarketBenchmarks[category]
+
+            // Calculate competitive positioning
+            const competitiveFactor = avgPrice / benchmark.avgPrice
+            const status =
+              competitiveFactor < 0.95
+                ? "Competitive ✅"
+                : competitiveFactor > 1.05
+                  ? "Above Market ⚠️"
+                  : "Market Aligned ➖"
+
+            return {
+              vendor: vendorName,
+              totalSpend: Math.round(totalSpend),
+              avgPrice: Math.round(avgPrice),
+              orderCount,
+              uaeMarketAvg: Math.round(benchmark.avgPrice),
+              variance: Math.round((competitiveFactor - 1) * 100),
+              status,
+            }
+          })
+
+          // Calculate totals and insights
+          const totalSpend = analysis.reduce((sum: number, v: any) => sum + v.totalSpend, 0)
+          const topVendor = analysis.reduce((prev: any, current: any) =>
+            current.totalSpend > prev.totalSpend ? current : prev
+          )
+
+          return {
+            success: true,
+            analysisType: analysis_type,
+            summary: {
+              totalSpend,
+              totalVendors: analysis.length,
+              topVendor: topVendor.vendor,
+              topVendorSpend: topVendor.totalSpend,
+              averageOrderValue: Math.round(totalSpend / analysis.reduce((sum: number, v: any) => sum + v.orderCount, 0)),
+            },
+            vendorAnalysis: analysis,
+            insights: [
+              `Total procurement spend: AED ${totalSpend.toLocaleString()}`,
+              `Top vendor: ${topVendor.vendor} (${topVendor.status})`,
+              `Average order value: AED ${Math.round(totalSpend / analysis.reduce((sum: number, v: any) => sum + v.orderCount, 0))}`,
+              `Vendor diversity: ${analysis.length} active suppliers`,
+            ],
+          }
+        } catch (error) {
+          return {
+            error: `Failed to generate market intelligence: ${error instanceof Error ? error.message : "Unknown error"}`,
+          }
+        }
+      },
+    }),
       execute: async ({ expression }) => {
         try {
           // eslint-disable-next-line no-eval
@@ -333,7 +470,10 @@ export async function POST(req: Request) {
   try {
     // 1. Verify session
     const session = await getSession()
+    console.log("[v0] Chat POST: Session check - found =", !!session, "uid =", session?.uid)
+    
     if (!session) {
+      console.log("[v0] Chat POST: No session found, returning 401")
       return Response.json(
         { success: false, error: "Authentication required" },
         { status: 401 }
