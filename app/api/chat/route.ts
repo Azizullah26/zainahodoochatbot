@@ -451,18 +451,6 @@ function createTools(uid: number, password: string, allowedModels: string[]) {
         }
       },
     }),
-      execute: async ({ expression }) => {
-        try {
-          // eslint-disable-next-line no-eval
-          const result = eval(expression)
-          return { success: true, result, expression }
-        } catch (error) {
-          return {
-            error: `Calculation failed: ${error instanceof Error ? error.message : "Invalid expression"}`,
-          }
-        }
-      },
-    }),
   }
 }
 
