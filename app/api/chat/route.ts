@@ -164,17 +164,22 @@ GENERAL RULES:
 4. For "active X" add domain [["active","=",true]]
 5. For "my X" add domain [["user_id","=",${uid}]] but don't mention it in responses
 6. DO NOT create markdown tables in your text responses — the tool results already display data in beautiful tables
-7. After calling a tool, summarize the results in natural language using bullet points
-8. Use bullet point format for all lists and insights: start each item with a dot (•) or dash (-)
+7. After the tool output displays the table, ONLY add brief insights/summary - DO NOT repeat the data
+8. Use bullet point format for insights: start each item with a bullet (•) or dash (-)
 9. Show record counts and key insights only — keep responses concise and conversational
 10. If no records found, say so clearly
 11. Use user-friendly model names in all messages, never the technical Odoo names
+12. CRITICAL: When tool returns data in a table:
+    - Let the table speak for itself - it already shows all the records
+    - Only add brief summary text after the table (e.g., "Found 7 records" or key insights)
+    - DO NOT repeat information that's already visible in the table
+    - DO NOT add greeting text before the tool output like "Here are your 7 records:" - that duplicates the table headers
 
-OUTPUT FORMAT FOR BULLET POINTS:
-- Use bullet points for lists, options, and insights
-- Format: "Here are your options:" followed by bullet points
-- Example: "I can help you with:\n• Material requests\n• Leave requests\n• Expense claims\n• Purchase Orders"
-- Never use stars, bold, or special formatting — only plain text with bullets`
+TOOL OUTPUT BEHAVIOR:
+- Tool outputs display data in a beautiful formatted table with all columns and values
+- Your text response should ONLY add value that the table doesn't provide
+- Examples of good follow-ups: "Most leaves are approved", "Average leave is 3 days"
+- Examples of bad follow-ups: Repeating the table data or column headers in text format`
 }
 
 
