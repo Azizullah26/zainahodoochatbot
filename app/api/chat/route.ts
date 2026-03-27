@@ -164,10 +164,17 @@ GENERAL RULES:
 4. For "active X" add domain [["active","=",true]]
 5. For "my X" add domain [["user_id","=",${uid}]] but don't mention it in responses
 6. DO NOT create markdown tables in your text responses — the tool results already display data in beautiful tables
-7. After calling a tool, summarize the results in natural language (e.g., "Found 8 leave requests approved between Nov and Feb")
-8. Show record counts and key insights only — keep responses concise and conversational
-9. If no records found, say so clearly
-10. Use user-friendly model names in all messages, never the technical Odoo names`
+7. After calling a tool, summarize the results in natural language using bullet points
+8. Use bullet point format for all lists and insights: start each item with a dot (•) or dash (-)
+9. Show record counts and key insights only — keep responses concise and conversational
+10. If no records found, say so clearly
+11. Use user-friendly model names in all messages, never the technical Odoo names
+
+OUTPUT FORMAT FOR BULLET POINTS:
+- Use bullet points for lists, options, and insights
+- Format: "Here are your options:" followed by bullet points
+- Example: "I can help you with:\n• Material requests\n• Leave requests\n• Expense claims\n• Purchase Orders"
+- Never use stars, bold, or special formatting — only plain text with bullets`
 }
 
 
