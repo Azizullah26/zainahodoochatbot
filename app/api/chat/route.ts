@@ -171,6 +171,7 @@ GENERAL RULES:
 }
 
 
+// Tools factory - creates all available Odoo interaction tools with model allowlisting
 function createTools(uid: number, password: string, allowedModels: string[]) {
   return {
     name_search: tool({
@@ -459,7 +460,7 @@ export async function POST(req: Request) {
     // 1. Verify session
     const session = await getSession()
     console.log("[v0] Chat POST: Session check - found =", !!session, "uid =", session?.uid)
-    
+
     if (!session) {
       console.log("[v0] Chat POST: No session found, returning 401")
       return Response.json(
