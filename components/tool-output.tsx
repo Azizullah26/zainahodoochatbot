@@ -9,6 +9,8 @@ import {
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { sanitizeError, getToolFriendlyName } from "@/lib/error-sanitizer"
+import { ExportButton } from "@/components/export-button"
+import { getExportFilename } from "@/lib/export"
 
 interface ToolOutputProps {
   toolName: string
@@ -206,12 +208,21 @@ export function ToolOutput({
       <div className="my-2 rounded-lg border border-border bg-muted/30 p-3">
         {/* Only show header if there's a user-friendly label */}
         {label && (
-          <div className="flex items-center gap-2 text-sm mb-3">
-            <span className="text-primary">{icon}</span>
-            <span className="font-medium text-foreground">{label}</span>
-            <Badge variant="secondary" className="text-xs">
-              {count} {count === 1 ? "record" : "records"}
-            </Badge>
+          <div className="flex items-center justify-between gap-2 text-sm mb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-primary">{icon}</span>
+              <span className="font-medium text-foreground">{label}</span>
+              <Badge variant="secondary" className="text-xs">
+                {count} {count === 1 ? "record" : "records"}
+              </Badge>
+            </div>
+            {/* Export button for data tables */}
+            {data && data.length > 0 && (
+              <ExportButton 
+                data={data} 
+                filename={getExportFilename(label.toLowerCase().replace(/\s+/g, "-"))}
+              />
+            )}
           </div>
         )}
 
