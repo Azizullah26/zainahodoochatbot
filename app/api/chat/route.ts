@@ -6,6 +6,7 @@ import {
   validateUIMessages,
   stepCountIs,
 } from "ai"
+import { anthropic } from "@ai-sdk/anthropic"
 import { z } from "zod"
 import { searchRead as jsonRpcSearchRead } from "@/lib/odoo/jsonrpc"
 import { getSession, fetchUserName } from "@/lib/auth"
@@ -175,16 +176,14 @@ GENERAL RULES:
 function createTools(uid: number, password: string, allowedModels: string[]) {
   return {
     name_search: tool({
-      description:
-        "Step 1: Find record IDs by name. Returns record IDs that match the search term. Use the returned ID with search_read to get full details.",
-      inputSchema: z.object({
-        model: z.string().describe("Odoo model (e.g., 'hr.employee', 'project.project')"),
-        name: z.string().describe("Name or partial name to search for"),
-        domain: z
-          .array(z.array(z.unknown()))
+      description: "Search for records by name, returns matching record IDs",
+      parameters: z.object({
+        model: z.string().describe("Odoo model name"),
+        name: z.string().describe("Name to search for"),
+        limit: z
+          .number()
           .optional()
-          .describe("Additional filter domain (optional)"),
-        limit: z.number().optional().default(10),
+          .describe("Maximum number of results (default: 10)"),
       }),
       execute: async ({ model, name, domain, limit }) => {
         if (!isModelAllowed(model, allowedModels)) {
@@ -220,23 +219,26 @@ function createTools(uid: number, password: string, allowedModels: string[]) {
     }),
 
     search_read: tool({
-      description:
-        "Fetch detailed records from Odoo with filtering, sorting, and field selection. Use this AFTER name_search to get full details, or for direct filtered queries. Automatically optimizes field selection for readability.",
-      inputSchema: z.object({
-        model: z.string().describe("Odoo model"),
+      description: "Fetch records from Odoo with filtering and search",
+      parameters: z.object({
+        model: z.string().describe("Odoo model name"),
         domain: z
           .array(z.array(z.unknown()))
           .optional()
-          .describe("Filter criteria (e.g., [['name', 'ilike', 'John']])"),
-        fields: z
-          .array(z.string())
+          .describe("Filter conditions [[field, operator, value], ...]"),
+        fields: z.array(z.string()).optional().describe("Fields to fetch"),
+        limit: z
+          .number()
           .optional()
-          .describe("Fields to retrieve (empty = auto-select recommended fields)"),
+          .describe("Maximum number of records (default: 50, max: 200)"),
+        offset: z
+          .number()
+          .optional()
+          .describe("Number of records to skip (for pagination)"),
         order: z
           .string()
           .optional()
-          .describe("Sort order (e.g., 'name asc', 'date_created desc')"),
-        limit: z.number().optional().default(40),
+          .describe("Sort order (e.g., 'name asc', 'create_date desc')"),
       }),
       execute: async ({ model, domain, fields, order, limit }) => {
         if (!isModelAllowed(model, allowedModels)) {
@@ -265,21 +267,25 @@ function createTools(uid: number, password: string, allowedModels: string[]) {
     }),
 
     read_group: tool({
-      description:
-        "Aggregate and summarize data - group by fields and compute totals, counts, averages. Perfect for reports and summaries.",
-      inputSchema: z.object({
-        model: z.string().describe("Odoo model"),
-        groupby: z
-          .array(z.string())
-          .describe("Fields to group by (e.g., ['department_id', 'project_id'])"),
-        fields: z
-          .array(z.string())
-          .describe("Measure fields to aggregate (e.g., ['amount:sum', 'id:count'])"),
+      description: "Aggregate records by grouping fields (totals, counts, averages)",
+      parameters: z.object({
+        model: z.string().describe("Odoo model name"),
         domain: z
           .array(z.array(z.unknown()))
           .optional()
-          .describe("Filter domain"),
-        limit: z.number().optional().default(100),
+          .describe("Filter conditions"),
+        groupby: z
+          .array(z.string())
+          .optional()
+          .describe("Fields to group by"),
+        fields: z
+          .array(z.string())
+          .optional()
+          .describe("Aggregation functions (e.g., ['amount_total:sum', 'id:count'])"),
+        limit: z
+          .number()
+          .optional()
+          .describe("Max groups returned (default: 50)"),
       }),
       execute: async ({ model, groupby, fields, domain, limit }) => {
         if (!isModelAllowed(model, allowedModels)) {
@@ -314,7 +320,7 @@ function createTools(uid: number, password: string, allowedModels: string[]) {
 
     calculator: tool({
       description: "Simple math calculations",
-      inputSchema: z.object({
+      parameters: z.object({
         expression: z.string().describe("Math expression (e.g., '100 + 50', '1000 / 3')"),
       }),
       execute: ({ expression }) => {
@@ -331,7 +337,7 @@ function createTools(uid: number, password: string, allowedModels: string[]) {
     market_intelligence: tool({
       description:
         "Analyze vendor pricing data and compare with UAE market benchmarks. Provides competitive analysis and market positioning insights for procurement decisions.",
-      inputSchema: z.object({
+      parameters: z.object({
         model: z.string().describe("Odoo model to analyze (typically 'purchase.order')"),
         analysis_type: z
           .enum(["vendor_comparison", "category_analysis", "price_trends"])
@@ -497,7 +503,7 @@ export async function POST(req: Request) {
 
     // 6. Stream response with Claude Opus 4.6 for better analysis
     const result = streamText({
-      model: "anthropic/claude-opus-4.6",
+      model: anthropic("claude-opus-4-5"),
       system: systemPrompt,
       messages: await convertToModelMessages(messages),
       tools: allTools,
