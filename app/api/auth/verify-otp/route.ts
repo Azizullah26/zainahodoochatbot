@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from "next/server"
-import { verifyOTPToken, createSession } from "@/lib/auth"
-import { cookies } from "next/headers"
+import { verifyOTPToken, getTwoFASession, destroyTwoFASession } from "@/lib/auth"
 
 interface OTPVerificationRequest {
   otp: string
   userId: number
+  sessionId: string
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { otp, userId } = (await request.json()) as OTPVerificationRequest
+    const { otp, userId, sessionId } = (await request.json()) as OTPVerificationRequest
 
-    if (!otp || !userId) {
+    if (!otp || !userId || !sessionId) {
       return NextResponse.json(
-        { error: "OTP and User ID are required" },
+        { error: "OTP, User ID, and Session ID are required" },
         { status: 400 }
       )
     }
@@ -25,33 +25,31 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Read session_id from HTTP-only cookie set during login
-    const cookieStore = await cookies()
-    const sessionId = cookieStore.get("odoo_session_id")?.value
-
-    console.log("[v0] verify-otp: Reading cookie - sessionId found =", !!sessionId, "id =", sessionId?.slice(0, 8))
-
-    if (!sessionId) {
-      console.log("[v0] OTP verification failed: No session_id in cookie")
-      return NextResponse.json(
-        { error: "Session expired. Please login again." },
-        { status: 401 }
-      )
-    }
-
-    console.log("[v0] Verifying OTP for session:", sessionId.slice(0, 8), "userId:", userId)
+    console.log("[v0] verify-otp: Looking up 2FA session:", sessionId.slice(0, 8))
 
     try {
-      // Call Odoo's custom OTP verification endpoint
-      const success = await verifyOTPToken(sessionId, otp, userId)
+      // Retrieve Odoo session_id from Redis-backed 2FA session
+      const twoFASession = await getTwoFASession(sessionId)
+
+      if (!twoFASession) {
+        console.log("[v0] OTP verification failed: 2FA session not found or expired")
+        return NextResponse.json(
+          { error: "Session expired. Please login again." },
+          { status: 401 }
+        )
+      }
+
+      console.log("[v0] verify-otp: Found 2FA session, Odoo session:", twoFASession.odooSessionId.slice(0, 8))
+
+      // Verify OTP with Odoo using the retrieved session
+      const success = await verifyOTPToken(twoFASession.odooSessionId, otp, userId)
 
       if (success) {
         console.log("[v0] OTP verification successful for userId:", userId)
         
-        // Clear the OTP session cookie after successful verification
-        cookieStore.delete("odoo_session_id")
+        // Destroy the 2FA session after successful verification
+        await destroyTwoFASession(sessionId)
         
-        // Note: Session creation will be handled by the login form after successful OTP verification
         return NextResponse.json(
           {
             success: true,

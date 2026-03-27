@@ -1,5 +1,4 @@
-import { checkLoginWith2FA, createSession } from "@/lib/auth"
-import { cookies } from "next/headers"
+import { checkLoginWith2FA, createSession, createTwoFASession } from "@/lib/auth"
 
 export async function POST(req: Request) {
   try {
@@ -23,26 +22,18 @@ export async function POST(req: Request) {
         has_session: !!loginResult.session_id,
       })
 
-      // If 2FA is required, store the session_id in a cookie and return 2FA prompt
+      // If 2FA is required, store the Odoo session in Redis-backed 2FA session
       if (loginResult.need_2fa) {
         console.log("[v0] 2FA required for user:", loginResult.uid)
         
-        // Store session_id in HTTP-only cookie for OTP verification
-        const cookieStore = await cookies()
-        cookieStore.set("odoo_session_id", loginResult.session_id, {
-          httpOnly: true,
-          secure: true, // Always use secure=true for HTTPS deployments
-          sameSite: "strict", // Strict SameSite for security
-          maxAge: 300, // 5 minutes
-          path: "/", // Ensure cookie is available to all routes
-        })
-        console.log("[v0] Stored odoo_session_id in HTTP-only cookie")
+        // Store Odoo session_id in Redis (more reliable than cookies)
+        const twoFASessionId = await createTwoFASession(loginResult.session_id, loginResult.uid)
         
         return Response.json(
           {
             success: false,
             requires2FA: true,
-            sessionId: loginResult.session_id,
+            sessionId: twoFASessionId, // Return the 2FA session ID (not Odoo session ID)
             userId: loginResult.uid,
             email: username,
             error: "2FA verification required",
@@ -68,7 +59,6 @@ export async function POST(req: Request) {
       }
 
       // If no 2FA, create session and login user
-      // For now, store the session ID and password for later authenticated API calls
       await createSession(loginResult.uid, password)
 
       return Response.json({

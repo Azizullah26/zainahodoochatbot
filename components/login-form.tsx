@@ -73,12 +73,12 @@ export function LoginForm() {
     setOtpError("")
 
     try {
-      // Backend reads session_id from HTTP-only cookie, we only send OTP
+      // Send OTP with sessionId (2FA session from Redis) and userId
       const response = await fetch("/api/auth/verify-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include", // Include HTTP-only cookies in the request
-        body: JSON.stringify({ otp, userId }),
+        credentials: "include",
+        body: JSON.stringify({ otp, userId, sessionId }),
       })
 
       const data = await response.json()

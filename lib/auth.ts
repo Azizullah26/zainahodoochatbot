@@ -98,6 +98,59 @@ export async function destroySession(): Promise<void> {
   }
 }
 
+// ─── 2FA Session Management (Redis-backed for reliability) ──────────────
+
+interface TwoFASessionData {
+  odooSessionId: string
+  userId: number
+  timestamp: number
+}
+
+const TWOF_SESSION_TTL = 300 // 5 minutes in seconds
+const TWOF_KEY_PREFIX = "2fa_session:"
+
+export async function createTwoFASession(
+  odooSessionId: string,
+  userId: number
+): Promise<string> {
+  const sessionId = generateSessionId()
+  const data: TwoFASessionData = {
+    odooSessionId,
+    userId,
+    timestamp: Date.now(),
+  }
+
+  await redis.set(`${TWOF_KEY_PREFIX}${sessionId}`, JSON.stringify(data), {
+    ex: TWOF_SESSION_TTL,
+  })
+  console.log("[v0] create2FASession: Stored 2FA session in Redis, sessionId =", sessionId.slice(0, 8))
+  return sessionId
+}
+
+export async function getTwoFASession(sessionId: string): Promise<TwoFASessionData | null> {
+  try {
+    const raw = await redis.get<string>(`${TWOF_KEY_PREFIX}${sessionId}`)
+    console.log("[v0] get2FASession: Redis lookup =", !!raw, "sessionId =", sessionId.slice(0, 8))
+    
+    if (!raw) return null
+
+    const data: TwoFASessionData = typeof raw === "string" ? JSON.parse(raw) : (raw as TwoFASessionData)
+    return data
+  } catch (err) {
+    console.log("[v0] get2FASession error:", err instanceof Error ? err.message : err)
+    return null
+  }
+}
+
+export async function destroyTwoFASession(sessionId: string): Promise<void> {
+  try {
+    await redis.del(`${TWOF_KEY_PREFIX}${sessionId}`)
+    console.log("[v0] destroy2FASession: Destroyed 2FA session", sessionId.slice(0, 8))
+  } catch (err) {
+    console.log("[v0] destroy2FASession error:", err instanceof Error ? err.message : err)
+  }
+}
+
 // ─── Odoo authentication ────────────────────────────────────────────
 
 export interface LoginCheckResponse {
