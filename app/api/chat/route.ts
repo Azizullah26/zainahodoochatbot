@@ -206,7 +206,7 @@ function createTools(uid: number, password: string, allowedModels: string[]) {
           .optional()
           .describe("Maximum number of results (default: 10)"),
       }),
-      execute: async ({ model, name, domain, limit }) => {
+      execute: async ({ model, name, limit }) => {
         if (!isModelAllowed(model, allowedModels)) {
           return { error: `Model ${model} is not in your allowed access list` }
         }
