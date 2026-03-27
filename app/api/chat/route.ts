@@ -6,7 +6,6 @@ import {
   validateUIMessages,
   stepCountIs,
 } from "ai"
-import { anthropic } from "@ai-sdk/anthropic"
 import { z } from "zod"
 import { searchRead as jsonRpcSearchRead } from "@/lib/odoo/jsonrpc"
 import { getSession, fetchUserName } from "@/lib/auth"
@@ -501,9 +500,9 @@ export async function POST(req: Request) {
       tools: allTools as any,
     })
 
-    // 6. Stream response with Claude Opus 4.6 for better analysis
+    // 6. Stream response with Claude Sonnet 4.6 via Vercel AI Gateway
     const result = streamText({
-      model: anthropic("claude-opus-4-5"),
+      model: "anthropic/claude-sonnet-4.6",
       system: systemPrompt,
       messages: await convertToModelMessages(messages),
       tools: allTools,
