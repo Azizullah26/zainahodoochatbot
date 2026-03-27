@@ -1,4 +1,4 @@
-import { checkLoginWith2FA, createSession, createTwoFASession } from "@/lib/auth"
+import { checkLoginWith2FA, createSession, createTwoFASession, fetchEmployeeImage, fetchUserName } from "@/lib/auth"
 
 export async function POST(req: Request) {
   try {
@@ -61,9 +61,18 @@ export async function POST(req: Request) {
       // If no 2FA, create session and login user
       await createSession(loginResult.uid, password)
 
+      // Fetch user's full name and employee image
+      const fullName = await fetchUserName(loginResult.uid, password)
+      const employeeImage = await fetchEmployeeImage(loginResult.uid, password)
+
       return Response.json({
         success: true,
-        user: { uid: loginResult.uid, username, name: username },
+        user: { 
+          uid: loginResult.uid, 
+          username, 
+          name: fullName,
+          image: employeeImage,
+        },
       })
     } catch (authError) {
       const errorMessage = authError instanceof Error ? authError.message : "Authentication failed"
