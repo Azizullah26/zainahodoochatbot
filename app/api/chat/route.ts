@@ -49,12 +49,13 @@ IMPORTANT DISPLAY RULES:
 - Always use friendly names when listing or explaining available options
 - Keep internal technical details hidden from users
 
-You have 5 tools:
+You have 6 tools:
 1. search_read  — fetch records with filters/sorting
 2. read_group   — aggregate/totals (counts, sums)
 3. name_search  — find records by name, returns IDs
 4. calculator   — math calculations
 5. market_intelligence — compare vendor pricing with UAE market benchmarks
+6. cost_analysis — analyze project costs by category (LPO, Petty Cash, Invoice, Labor, Staff)
 
 NATURAL LANGUAGE → ODOO TRANSLATION:
 Always map user language to the correct model and domain filter:
@@ -131,6 +132,17 @@ FOR VENDOR/PROCUREMENT QUERIES:
 - Call: market_intelligence(model="purchase.order", analysis_type="vendor_comparison", groupby=["partner_id"])
 - The tool returns vendor analysis with competitive status (Competitive or Above Market)
 - Present findings in the 3-layer format above
+
+PROJECT COST ANALYSIS:
+FOR PROJECT BUDGET/COST QUERIES:
+- ALWAYS use the cost_analysis tool when user asks about:
+  * Project budget breakdown, cost distribution, cost by category
+  * "Project costs", "project budget", "how much spent on X"
+  * "LPO vs labor", "cost breakdown", "where is project money going"
+- Call: cost_analysis(project_id=PROJECT_ID) to get complete breakdown
+- Tool returns costs for: LPO, Petty Cash, Invoice, Labor, Staff
+- Present summary with percentages and key insights
+- Example: "LPO accounts for 45% of project costs (AED 500K), followed by Labor at 30%"
 
 RULES FOR VENDOR ANALYSIS:
 1. If result > 10 records → NEVER list raw data. Always summarize + create tables
@@ -475,6 +487,272 @@ function createTools(uid: number, password: string, allowedModels: string[]) {
         } catch (error) {
           return {
             error: `Failed to generate market intelligence: ${error instanceof Error ? error.message : "Unknown error"}`,
+          }
+        }
+      },
+    }),
+
+    cost_analysis: tool({
+      description:
+        "Analyze project costs by category (LPO, Petty Cash, Invoice, Labor, Staff). Provides cost distribution breakdown for budget tracking and financial analysis.",
+      inputSchema: z.object({
+        project_id: z.number().describe("Project ID to analyze costs for"),
+        date_from: z.string().optional().describe("Start date (YYYY-MM-DD format, default: project start)"),
+        date_to: z.string().optional().describe("End date (YYYY-MM-DD format, default: today)"),
+      }),
+      execute: async ({ project_id, date_from, date_to }) => {
+        try {
+          // Fetch project details for date range
+          const projectResponse = await fetch(`${process.env.ODOO_URL}/jsonrpc`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              jsonrpc: "2.0",
+              method: "call",
+              id: Math.random(),
+              params: {
+                service: "object",
+                method: "read",
+                args: [process.env.ODOO_DB, uid, password, "project.project", [project_id], ["name", "date_start"]],
+              },
+            }),
+          })
+
+          const projectData = await projectResponse.json()
+          const project = projectData.result?.[0]
+          
+          if (!project) {
+            return { error: `Project ${project_id} not found` }
+          }
+
+          const startDate = date_from || project.date_start || new Date().toISOString().split("T")[0]
+          const endDate = date_to || new Date().toISOString().split("T")[0]
+
+          const costAnalysis: Record<string, any> = {
+            projectName: project.name,
+            dateRange: { from: startDate, to: endDate },
+            categories: {},
+          }
+
+          // 1. LPO - Group by material type
+          const lpoResponse = await fetch(`${process.env.ODOO_URL}/jsonrpc`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              jsonrpc: "2.0",
+              method: "call",
+              id: Math.random(),
+              params: {
+                service: "object",
+                method: "read_group",
+                args: [
+                  process.env.ODOO_DB,
+                  uid,
+                  password,
+                  "purchase.order",
+                  [
+                    ["state", "in", ["purchase", "done"]],
+                    ["project_id", "=", project_id],
+                    ["date_order", ">=", startDate],
+                    ["date_order", "<=", endDate],
+                  ],
+                  ["amount_total:sum"],
+                  ["material_type_id"],
+                  0,
+                  100,
+                ],
+              },
+            }),
+          })
+
+          const lpoData = await lpoResponse.json()
+          const lpoItems = (lpoData.result || []).map((row: any) => ({
+            label: row.material_type_id?.[1] || "Other",
+            amount: Math.round(row.amount_total__sum || 0),
+          }))
+          
+          costAnalysis.categories.LPO = {
+            items: lpoItems,
+            total: lpoItems.reduce((sum: number, item: any) => sum + item.amount, 0),
+          }
+
+          // 2. Petty Cash - Group by type
+          const expenseResponse = await fetch(`${process.env.ODOO_URL}/jsonrpc`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              jsonrpc: "2.0",
+              method: "call",
+              id: Math.random(),
+              params: {
+                service: "object",
+                method: "read_group",
+                args: [
+                  process.env.ODOO_DB,
+                  uid,
+                  password,
+                  "hr.expense",
+                  [
+                    ["analytic_account_id.project_id", "=", project_id],
+                    ["state", "=", "done"],
+                    ["date", ">=", startDate],
+                    ["date", "<=", endDate],
+                  ],
+                  ["total_amount:sum"],
+                  ["x_petty_cash_type"],
+                  0,
+                  100,
+                ],
+              },
+            }),
+          })
+
+          const expenseData = await expenseResponse.json()
+          const expenseItems = (expenseData.result || []).map((row: any) => ({
+            label: row.x_petty_cash_type || "General",
+            amount: Math.round(row.total_amount__sum || 0),
+          }))
+
+          costAnalysis.categories["Petty Cash"] = {
+            items: expenseItems,
+            total: expenseItems.reduce((sum: number, item: any) => sum + item.amount, 0),
+          }
+
+          // 3. Invoice - Vendor bills
+          const invoiceResponse = await fetch(`${process.env.ODOO_URL}/jsonrpc`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              jsonrpc: "2.0",
+              method: "call",
+              id: Math.random(),
+              params: {
+                service: "object",
+                method: "read_group",
+                args: [
+                  process.env.ODOO_DB,
+                  uid,
+                  password,
+                  "account.move.line",
+                  [
+                    ["analytic_account_id.project_id", "=", project_id],
+                    ["move_id.state", "=", "posted"],
+                    ["move_id.move_type", "in", ["in_invoice", "in_receipt"]],
+                    ["date", ">=", startDate],
+                    ["date", "<=", endDate],
+                  ],
+                  ["balance:sum"],
+                  [],
+                  0,
+                  1,
+                ],
+              },
+            }),
+          })
+
+          const invoiceData = await invoiceResponse.json()
+          const invoiceTotal = Math.round((invoiceData.result?.[0]?.balance__sum || 0))
+          
+          costAnalysis.categories.Invoice = {
+            items: invoiceTotal > 0 ? [{ label: "Vendor Bills", amount: invoiceTotal }] : [],
+            total: invoiceTotal,
+          }
+
+          // 4. Labor Cost
+          const laborResponse = await fetch(`${process.env.ODOO_URL}/jsonrpc`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              jsonrpc: "2.0",
+              method: "call",
+              id: Math.random(),
+              params: {
+                service: "object",
+                method: "read_group",
+                args: [
+                  process.env.ODOO_DB,
+                  uid,
+                  password,
+                  "hr.payslip.cost.allocation",
+                  [
+                    ["project_id", "=", project_id],
+                    ["employee_id.is_labor", "=", true],
+                    ["date", ">=", startDate],
+                    ["date", "<=", endDate],
+                  ],
+                  ["amount:sum"],
+                  [],
+                  0,
+                  1,
+                ],
+              },
+            }),
+          })
+
+          const laborData = await laborResponse.json()
+          const laborTotal = Math.round((laborData.result?.[0]?.amount__sum || 0))
+
+          costAnalysis.categories.Labor = {
+            items: laborTotal > 0 ? [{ label: "Labor", amount: laborTotal }] : [],
+            total: laborTotal,
+          }
+
+          // 5. Staff Cost
+          const staffResponse = await fetch(`${process.env.ODOO_URL}/jsonrpc`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              jsonrpc: "2.0",
+              method: "call",
+              id: Math.random(),
+              params: {
+                service: "object",
+                method: "read_group",
+                args: [
+                  process.env.ODOO_DB,
+                  uid,
+                  password,
+                  "hr.payslip.cost.allocation",
+                  [
+                    ["project_id", "=", project_id],
+                    ["employee_id.is_labor", "=", false],
+                    ["date", ">=", startDate],
+                    ["date", "<=", endDate],
+                  ],
+                  ["amount:sum"],
+                  [],
+                  0,
+                  1,
+                ],
+              },
+            }),
+          })
+
+          const staffData = await staffResponse.json()
+          const staffTotal = Math.round((staffData.result?.[0]?.amount__sum || 0))
+
+          costAnalysis.categories.Staff = {
+            items: staffTotal > 0 ? [{ label: "Staff", amount: staffTotal }] : [],
+            total: staffTotal,
+          }
+
+          // Calculate totals and percentages
+          const allCategoryTotals = Object.values(costAnalysis.categories).map((cat: any) => cat.total)
+          const grandTotal = allCategoryTotals.reduce((sum: number, val: number) => sum + val, 0)
+
+          costAnalysis.summary = {
+            grandTotal,
+            breakdown: Object.entries(costAnalysis.categories).map(([category, data]: [string, any]) => ({
+              category,
+              total: data.total,
+              percentage: grandTotal > 0 ? Math.round((data.total / grandTotal) * 100) : 0,
+            })),
+          }
+
+          return { success: true, costAnalysis }
+        } catch (error) {
+          return {
+            error: `Failed to analyze project costs: ${error instanceof Error ? error.message : "Unknown error"}`,
           }
         }
       },
