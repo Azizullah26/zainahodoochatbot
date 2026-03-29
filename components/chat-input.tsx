@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { ArrowUp, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { VoiceInput } from "@/components/voice-input"
 
 interface ChatInputProps {
   onSend: (text: string) => void
@@ -27,9 +28,13 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
     setInput("")
   }
 
+  const handleVoiceTranscript = (transcript: string) => {
+    setInput(transcript)
+  }
+
   return (
-    <div className="border-t border-border bg-card px-4 py-3">
-      <div className="mx-auto flex max-w-3xl items-end gap-2">
+    <div className="border-t border-primary/20 bg-card/40 backdrop-blur-sm px-4 py-4">
+      <div className="mx-auto flex max-w-3xl items-center gap-3">
         <div className="relative flex-1">
           <textarea
             ref={textareaRef}
@@ -44,27 +49,48 @@ export function ChatInput({ onSend, isLoading }: ChatInputProps) {
             placeholder="Ask about projects, employees, tasks..."
             rows={1}
             className={cn(
-              "w-full resize-none rounded-xl border border-input bg-background px-4 py-3 pr-12 text-sm text-foreground",
-              "placeholder:text-muted-foreground",
-              "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-0",
+              "w-full resize-none rounded-xl border border-primary/30 bg-background/50 px-4 py-3 pr-16 text-sm text-foreground input-glow scrollbar-hide",
+              "placeholder:text-muted-foreground/50",
+              "focus:outline-none focus:border-primary focus:shadow-md focus:shadow-primary/20 focus:bg-background/70",
               "disabled:cursor-not-allowed disabled:opacity-50"
             )}
-            disabled={isLoading}
-            aria-label="Chat message input"
           />
+          {/* Voice button inside input field */}
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+            <VoiceInput
+              onTranscript={handleVoiceTranscript}
+              disabled={isLoading}
+              compact={true}
+            />
+          </div>
         </div>
         <Button
-          size="icon"
+          type="button"
           onClick={handleSubmit}
           disabled={!input.trim() || isLoading}
-          className="size-10 shrink-0 rounded-xl"
+          className={cn(
+            "shrink-0 px-8 py-2 rounded-full font-semibold text-foreground transition-all duration-300",
+            "relative overflow-hidden",
+            "border-2 border-primary/60 bg-background/40 backdrop-blur-sm",
+            "hover:border-primary hover:shadow-lg hover:shadow-primary/50 hover:bg-background/60",
+            "disabled:opacity-50 disabled:cursor-not-allowed",
+            "before:absolute before:inset-0 before:bg-gradient-to-t before:from-primary/30 before:to-transparent before:opacity-0 before:hover:opacity-100 before:transition-opacity before:duration-300"
+          )}
           aria-label="Send message"
         >
-          {isLoading ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <ArrowUp className="size-4" />
-          )}
+          <span className="relative z-10 flex items-center gap-2">
+            {isLoading ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                <span>Sending...</span>
+              </>
+            ) : (
+              <>
+                <span>Send</span>
+                <ArrowUp className="size-4" />
+              </>
+            )}
+          </span>
         </Button>
       </div>
     </div>

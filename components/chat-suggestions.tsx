@@ -8,6 +8,10 @@ import {
   ListTodo,
   Contact,
   Clock,
+  Zap,
+  Calendar,
+  FileText,
+  Receipt,
   type LucideIcon,
 } from "lucide-react"
 
@@ -49,6 +53,30 @@ const allSuggestions: Suggestion[] = [
     query: "Show recent timesheet entries",
     requiredTool: "getTimesheets",
   },
+  {
+    label: "My Requests",
+    icon: FileText,
+    query: "Show me my pending requests",
+    requiredTool: "getRequests",
+  },
+  {
+    label: "My Annual Leave Request",
+    icon: Calendar,
+    query: "Show my annual leave requests and balance",
+    requiredTool: "getLeaveRequests",
+  },
+  {
+    label: "My Sick Leave Request",
+    icon: Calendar,
+    query: "Show my sick leave requests",
+    requiredTool: "getLeaveRequests",
+  },
+  {
+    label: "My Expenses",
+    icon: Receipt,
+    query: "Show my submitted expenses and reimbursements",
+    requiredTool: "getExpenses",
+  },
 ]
 
 interface ChatSuggestionsProps {
@@ -57,11 +85,6 @@ interface ChatSuggestionsProps {
 
 export function ChatSuggestions({ onSelect }: ChatSuggestionsProps) {
   const { user } = useAuth()
-  const allowedTools = user?.allowedTools || []
-
-  const visibleSuggestions = allSuggestions.filter((s) =>
-    allowedTools.includes(s.requiredTool)
-  )
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6">
@@ -78,8 +101,9 @@ export function ChatSuggestions({ onSelect }: ChatSuggestionsProps) {
           </p>
         )}
       </div>
+
       <div className="flex flex-wrap justify-center gap-2">
-        {visibleSuggestions.map((s) => (
+        {allSuggestions.map((s) => (
           <Button
             key={s.label}
             variant="outline"
@@ -90,11 +114,6 @@ export function ChatSuggestions({ onSelect }: ChatSuggestionsProps) {
             {s.label}
           </Button>
         ))}
-        {visibleSuggestions.length === 0 && (
-          <p className="text-sm text-muted-foreground">
-            No modules available for your role. Contact your administrator for access.
-          </p>
-        )}
       </div>
     </div>
   )

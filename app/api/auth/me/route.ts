@@ -1,4 +1,4 @@
-import { getSession, fetchUserName, getAllowedTools } from "@/lib/auth"
+import { getSession, fetchUserName, fetchEmployeeImage, getAllowedTools } from "@/lib/auth"
 
 export async function GET() {
   const session = await getSession()
@@ -12,10 +12,18 @@ export async function GET() {
 
   // Fetch name on demand — not stored in cookie
   let name = `User ${session.uid}`
+  let image: string | undefined
+  
   try {
     name = await fetchUserName(session.uid, session.odooPassword)
   } catch {
     // fallback to uid-based name
+  }
+
+  try {
+    image = await fetchEmployeeImage(session.uid, session.odooPassword)
+  } catch {
+    // fallback to no image
   }
 
   return Response.json({
@@ -23,6 +31,7 @@ export async function GET() {
     user: {
       uid: session.uid,
       name,
+      image,
       allowedTools: getAllowedTools(),
     },
   })

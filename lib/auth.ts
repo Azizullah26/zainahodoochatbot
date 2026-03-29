@@ -47,25 +47,29 @@ export async function createSession(uid: number, password: string): Promise<void
   await redis.set(`${SESSION_KEY_PREFIX}${sessionId}`, JSON.stringify(payload), {
     ex: SESSION_TTL,
   })
+  console.log("[v0] createSession: Stored in Redis, sessionId =", sessionId.slice(0, 8))
 
   // Store only the tiny session ID in the cookie (~64 bytes)
   const store = await cookies()
   store.set(SESSION_COOKIE, sessionId, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: true, // Always secure on HTTPS deployments
     sameSite: "lax",
     path: "/",
     maxAge: SESSION_TTL,
   })
+  console.log("[v0] createSession: Cookie set, cookie name =", SESSION_COOKIE)
 }
 
 export async function getSession(): Promise<SessionPayload | null> {
   try {
     const store = await cookies()
     const sessionId = store.get(SESSION_COOKIE)?.value
+    console.log("[v0] getSession: sessionId found =", !!sessionId, "id =", sessionId?.slice(0, 8))
     if (!sessionId) return null
 
     const raw = await redis.get<string>(`${SESSION_KEY_PREFIX}${sessionId}`)
+    console.log("[v0] getSession: Redis lookup =", !!raw, "key =", `${SESSION_KEY_PREFIX}${sessionId.slice(0, 8)}`)
     if (!raw) return null
 
     const payload: SessionPayload =
@@ -75,7 +79,8 @@ export async function getSession(): Promise<SessionPayload | null> {
     await redis.expire(`${SESSION_KEY_PREFIX}${sessionId}`, SESSION_TTL)
 
     return payload
-  } catch {
+  } catch (err) {
+    console.log("[v0] getSession error:", err instanceof Error ? err.message : err)
     return null
   }
 }
@@ -93,7 +98,181 @@ export async function destroySession(): Promise<void> {
   }
 }
 
+// ─── 2FA Session Management (Redis-backed for reliability) ──────────────
+
+interface TwoFASessionData {
+  odooSessionId: string
+  userId: number
+  timestamp: number
+}
+
+const TWOF_SESSION_TTL = 300 // 5 minutes in seconds
+const TWOF_KEY_PREFIX = "2fa_session:"
+
+export async function createTwoFASession(
+  odooSessionId: string,
+  userId: number
+): Promise<string> {
+  const sessionId = generateSessionId()
+  const data: TwoFASessionData = {
+    odooSessionId,
+    userId,
+    timestamp: Date.now(),
+  }
+
+  await redis.set(`${TWOF_KEY_PREFIX}${sessionId}`, JSON.stringify(data), {
+    ex: TWOF_SESSION_TTL,
+  })
+  console.log("[v0] create2FASession: Stored 2FA session in Redis, sessionId =", sessionId.slice(0, 8))
+  return sessionId
+}
+
+export async function getTwoFASession(sessionId: string): Promise<TwoFASessionData | null> {
+  try {
+    const raw = await redis.get<string>(`${TWOF_KEY_PREFIX}${sessionId}`)
+    console.log("[v0] get2FASession: Redis lookup =", !!raw, "sessionId =", sessionId.slice(0, 8))
+    
+    if (!raw) return null
+
+    const data: TwoFASessionData = typeof raw === "string" ? JSON.parse(raw) : (raw as TwoFASessionData)
+    return data
+  } catch (err) {
+    console.log("[v0] get2FASession error:", err instanceof Error ? err.message : err)
+    return null
+  }
+}
+
+export async function destroyTwoFASession(sessionId: string): Promise<void> {
+  try {
+    await redis.del(`${TWOF_KEY_PREFIX}${sessionId}`)
+    console.log("[v0] destroy2FASession: Destroyed 2FA session", sessionId.slice(0, 8))
+  } catch (err) {
+    console.log("[v0] destroy2FASession error:", err instanceof Error ? err.message : err)
+  }
+}
+
 // ─── Odoo authentication ────────────────────────────────────────────
+
+export interface LoginCheckResponse {
+  uid: number
+  session_id: string
+  need_2fa: boolean
+  qr_code?: string
+}
+
+export async function checkLoginWith2FA(
+  username: string,
+  password: string
+): Promise<LoginCheckResponse> {
+  if (!ODOO_URL) throw new Error("ODOO_URL environment variable is not set")
+  if (!ODOO_DB) throw new Error("ODOO_DB environment variable is not set")
+
+  const response = await fetch(`${ODOO_URL}/web/login/check_2fa`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      method: "call",
+      params: {
+        db: ODOO_DB,
+        login: username,
+        password: password,
+      },
+      id: Math.floor(Math.random() * 1000),
+    }),
+    signal: AbortSignal.timeout(15000),
+  })
+
+  if (!response.ok) throw new Error(`Odoo returned HTTP ${response.status}`)
+
+  const data = await response.json()
+  console.log("[v0] checkLoginWith2FA response:", JSON.stringify(data).slice(0, 300))
+
+  // Handle nested result structure
+  let apiResult = data.result
+  if (apiResult && apiResult.result) {
+    apiResult = apiResult.result // Unwrap nested result
+  }
+
+  if (data.error) {
+    const errorMsg = data.error.data?.message ?? data.error.message ?? "Authentication failed"
+    console.log("[v0] Odoo 2FA check error:", errorMsg)
+    throw new Error(errorMsg)
+  }
+
+  if (!apiResult?.uid || !apiResult?.session_id) {
+    console.log("[v0] Invalid login response:", JSON.stringify(apiResult))
+    throw new Error(apiResult?.error || "Invalid credentials")
+  }
+
+  console.log("[v0] Odoo API result - need_2fa:", apiResult.need_2fa, "uid:", apiResult.uid)
+
+  return {
+    uid: apiResult.uid,
+    session_id: apiResult.session_id,
+    need_2fa: apiResult.need_2fa ?? false,
+    qr_code: apiResult.qr_code,
+  }
+}
+
+export async function verifyOTPToken(
+  sessionId: string,
+  otp: string,
+  userId: number
+): Promise<boolean> {
+  if (!ODOO_URL) throw new Error("ODOO_URL environment variable is not set")
+
+  const response = await fetch(`${ODOO_URL}/web/login/verify_otp`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      method: "call",
+      params: {
+        session_id: sessionId,
+        otp: otp,
+        user_id: userId,
+      },
+      id: Math.floor(Math.random() * 1000),
+    }),
+    signal: AbortSignal.timeout(15000),
+  })
+
+  if (!response.ok) throw new Error(`Odoo returned HTTP ${response.status}`)
+
+  const data = await response.json()
+  console.log("[v0] verifyOTPToken raw response:", JSON.stringify(data).slice(0, 300))
+
+  if (data.error) {
+    const errorMsg = data.error.data?.message ?? data.error.message ?? "OTP verification failed"
+    console.log("[v0] OTP verification error from Odoo:", errorMsg)
+    throw new Error(errorMsg)
+  }
+
+  // Handle double-nested result structure: result.result.success (matches check_2fa pattern)
+  let apiResult = data.result
+  if (apiResult && apiResult.result) {
+    apiResult = apiResult.result // Unwrap: result.result
+  }
+
+  console.log("[v0] OTP verification result after unwrapping:", JSON.stringify(apiResult).slice(0, 200))
+
+  // Check both success field and error field
+  if (apiResult?.error) {
+    console.log("[v0] OTP verification failed with error:", apiResult.error)
+    throw new Error(apiResult.error)
+  }
+
+  if (!apiResult?.success) {
+    console.log("[v0] OTP verification failed - success is false or missing:", JSON.stringify(apiResult))
+    throw new Error("Invalid or expired OTP")
+  }
+
+  console.log("[v0] OTP verification successful!")
+  return true
+}
 
 export async function authenticateWithOdoo(
   username: string,
@@ -116,9 +295,12 @@ export async function authenticateWithOdoo(
   if (!response.ok) throw new Error(`Odoo returned HTTP ${response.status}`)
 
   const data = await response.json()
+  console.log("[v0] authenticateWithOdoo response:", JSON.stringify(data).slice(0, 200))
 
   if (data.error) {
-    throw new Error(data.error.data?.message ?? data.error.message ?? "Authentication failed")
+    const errorMsg = data.error.data?.message ?? data.error.message ?? "Authentication failed"
+    console.log("[v0] Odoo error:", errorMsg)
+    throw new Error(errorMsg)
   }
 
   const result = data.result

@@ -8,6 +8,9 @@ import {
   Loader2,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { sanitizeError, getToolFriendlyName } from "@/lib/error-sanitizer"
+import { ExportButton } from "@/components/export-button"
+import { getExportFilename } from "@/lib/export"
 
 interface ToolOutputProps {
   toolName: string
@@ -31,12 +34,112 @@ const toolLabels: Record<string, string> = {
   getTasks: "Tasks",
   getPartners: "Partners",
   getTimesheets: "Timesheets",
+  search_read: "",
+  read_group: "",
+  name_search: "",
+  calculator: "",
 }
 
-function formatFilters(input: Record<string, unknown>): string[] {
-  return Object.entries(input)
-    .filter(([, v]) => v !== null && v !== undefined)
-    .map(([key, value]) => `${key}: ${String(value)}`)
+// Friendly field name mappings (hide technical names like employee_id, date_from, etc.)
+const fieldDisplayNames: Record<string, string> = {
+  // Basic fields
+  id: "ID",
+  name: "Name",
+  
+  // Employee/HR fields
+  employee_id: "Employee",
+  employee: "Employee",
+  work_email: "Work Email",
+  work_phone: "Work Phone",
+  mobile_phone: "Mobile Phone",
+  job_id: "Job Title",
+  job_title: "Job Title",
+  department_id: "Department",
+  department: "Department",
+  parent_id: "Manager",
+  manager: "Manager",
+  work_location: "Work Location",
+  address_home_id: "Home Address",
+  home_address: "Home Address",
+  barcode: "Employee ID",
+  identification_id: "ID Number",
+  
+  // Leave/Time-off fields
+  date_from: "From Date",
+  date_to: "To Date",
+  date_start: "Start Date",
+  date_end: "End Date",
+  state: "Status",
+  number_of_days: "Days",
+  holiday_status_id: "Type",
+  holiday_status: "Type",
+  request_date: "Request Date",
+  
+  // General fields
+  status: "Status",
+  date: "Date",
+  description: "Description",
+  user_id: "User",
+  user: "User",
+  project_id: "Project",
+  project: "Project",
+  task_id: "Task",
+  task: "Task",
+  stage_id: "Stage",
+  stage: "Stage",
+  priority: "Priority",
+  company_id: "Company",
+  company: "Company",
+  create_date: "Created",
+  write_date: "Updated",
+  
+  // Additional common fields
+  email: "Email",
+  phone: "Phone",
+  street: "Street",
+  city: "City",
+  state_id: "State",
+  country_id: "Country",
+  zip: "Zip Code",
+  ref: "Reference",
+  active: "Active",
+  sequence: "Sequence",
+  color: "Color",
+  notes: "Notes",
+  comment: "Comments",
+}
+
+function getFriendlyFieldName(fieldName: string): string {
+  return fieldDisplayNames[fieldName] || fieldName
+}
+
+function formatCellValue(value: unknown, fieldName: string): string {
+  if (value === null || value === undefined) return "-"
+  if (value === false) return "No"
+  if (value === true) return "Yes"
+  if (typeof value === "number") {
+    // For IDs and numeric fields, just show the number
+    if (fieldName.includes("_id") || fieldName === "id") {
+      return String(value)
+    }
+    // For decimal fields, limit to 2 places
+    if (Number.isInteger(value)) return String(value)
+    return Number(value).toFixed(2)
+  }
+  if (Array.isArray(value)) {
+    // For arrays with [id, name] format (Odoo relations), show just the name
+    if (Array.isArray(value[0])) {
+      return value.map((v: unknown) => (Array.isArray(v) ? v[1] : v)).join(", ")
+    }
+    if (value.length === 2 && typeof value[0] === "number") {
+      return String(value[1]) // Show name, not ID
+    }
+    return value.join(", ")
+  }
+  const str = String(value)
+  // Truncate very long strings
+  if (str.length > 100) return str.substring(0, 97) + "..."
+  return str
 }
 
 export function ToolOutput({
@@ -48,17 +151,20 @@ export function ToolOutput({
 }: ToolOutputProps) {
   const icon = toolIcons[toolName] || <FolderKanban className="size-4" />
   const label = toolLabels[toolName] || toolName
-  const filters = input ? formatFilters(input) : []
 
   if (state === "output-error") {
     return (
       <div className="my-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
         <div className="flex items-center gap-2 text-sm text-destructive">
           <AlertCircle className="size-4" />
-          <span className="font-medium">Error fetching {label}</span>
+          <span className="font-medium">
+            {label ? `Could not fetch ${label.toLowerCase()}` : "Could not fetch data"}
+          </span>
         </div>
         {errorText && (
-          <p className="mt-1 text-xs text-destructive/80">{errorText}</p>
+          <p className="mt-1 text-xs text-destructive/80">
+            {sanitizeError(errorText)}
+          </p>
         )}
       </div>
     )
@@ -70,11 +176,6 @@ export function ToolOutput({
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="size-4 animate-spin" />
           <span>Fetching {label.toLowerCase()}...</span>
-          {filters.length > 0 && (
-            <span className="text-xs">
-              ({filters.join(", ")})
-            </span>
-          )}
         </div>
       </div>
     )
@@ -91,12 +192,12 @@ export function ToolOutput({
           <div className="flex items-center gap-2 text-sm text-destructive">
             <AlertCircle className="size-4" />
             <span className="font-medium">
-              Failed to fetch {label.toLowerCase()}
+              Could not fetch {label.toLowerCase()}
             </span>
           </div>
           {!!output.error && (
             <p className="mt-1 text-xs text-destructive/80">
-              {String(output.error)}
+              {sanitizeError(String(output.error))}
             </p>
           )}
         </div>
@@ -105,61 +206,70 @@ export function ToolOutput({
 
     return (
       <div className="my-2 rounded-lg border border-border bg-muted/30 p-3">
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-primary">{icon}</span>
-          <span className="font-medium text-foreground">{label}</span>
-          <Badge variant="secondary" className="text-xs">
-            {count} {count === 1 ? "record" : "records"}
-          </Badge>
-        </div>
-        {filters.length > 0 && (
-          <div className="mt-1.5 flex flex-wrap gap-1">
-            {filters.map((f) => (
-              <Badge
-                key={f}
-                variant="outline"
-                className="text-xs font-normal text-muted-foreground"
-              >
-                {f}
+        {/* Only show header if there's a user-friendly label */}
+        {label && (
+          <div className="flex items-center justify-between gap-2 text-sm mb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-primary">{icon}</span>
+              <span className="font-medium text-foreground">{label}</span>
+              <Badge variant="secondary" className="text-xs">
+                {count} {count === 1 ? "record" : "records"}
               </Badge>
-            ))}
+            </div>
+            {/* Export button for data tables */}
+            {data && data.length > 0 && (
+              <ExportButton 
+                data={data} 
+                filename={getExportFilename(label.toLowerCase().replace(/\s+/g, "-"))}
+              />
+            )}
           </div>
         )}
-        {data && data.length > 0 && data.length <= 8 && (
-          <div className="mt-2 overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-border">
-                  {Object.keys(data[0]).slice(0, 5).map((key) => (
-                    <th
-                      key={key}
-                      className="px-2 py-1 text-left font-medium text-muted-foreground"
-                    >
-                      {key}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {data.map((row, i) => (
-                  <tr key={i} className="border-b border-border/50 last:border-0">
-                    {Object.values(row).slice(0, 5).map((val, j) => (
-                      <td
-                        key={j}
-                        className="max-w-[200px] truncate px-2 py-1 text-foreground"
+
+        {/* Show data table if available */}
+        {data && data.length > 0 && (
+          <div className="mt-3 overflow-x-auto">
+            <div className="inline-block min-w-full rounded-md border border-border">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-border bg-muted/50">
+                    {Object.keys(data[0]).map((key) => (
+                      <th
+                        key={key}
+                        className="px-3 py-2 text-left font-semibold text-foreground whitespace-nowrap"
                       >
-                        {Array.isArray(val)
-                          ? val.join(", ")
-                          : val === false
-                            ? "-"
-                            : String(val ?? "-")}
-                      </td>
+                        {getFriendlyFieldName(key)}
+                      </th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {data.map((row, i) => (
+                    <tr
+                      key={i}
+                      className="border-b border-border/30 hover:bg-muted/20 transition-colors last:border-0"
+                    >
+                      {Object.entries(row).map(([key, val]) => (
+                        <td
+                          key={key}
+                          className="px-3 py-2 text-foreground whitespace-nowrap"
+                        >
+                          {formatCellValue(val, key)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
+        )}
+
+        {/* Show summary message */}
+        {data && data.length > 0 && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Found {count} {label ? label.toLowerCase() : "records"} for you.
+          </p>
         )}
       </div>
     )

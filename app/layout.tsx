@@ -8,8 +8,41 @@ const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: 'Odoo ERP Assistant',
-  description: 'AI-powered chatbot for querying Odoo ERP data - projects, employees, tasks, and more.',
+  title: 'ELRACE Odoo ERP Assistant - AI-Powered Business Intelligence',
+  description: 'ELRACE Odoo Assistant is an AI-powered chatbot that helps you query and analyze Odoo ERP data. Get instant insights on projects, employees, tasks, leave requests, expenses, and more. Streamline your business operations with intelligent conversation-based data access.',
+  keywords: 'Odoo ERP, AI Assistant, Chatbot, Business Intelligence, ELRACE, Project Management, Employee Data',
+  authors: [{ name: 'ELRACE' }],
+  creator: 'ELRACE',
+  publisher: 'ELRACE',
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    url: 'https://elrace.com',
+    title: 'ELRACE Odoo ERP Assistant',
+    description: 'AI-powered chatbot for intelligent Odoo ERP data querying and analysis',
+    siteName: 'ELRACE',
+    images: [
+      {
+        url: 'https://elrace.com/RCC4/Requirements/IMG/rcclogo.PNG',
+        width: 1200,
+        height: 630,
+        alt: 'ELRACE Logo',
+        type: 'image/png',
+      },
+      {
+        url: 'https://elrace.com/RCC4/Requirements/IMG/rcclogo.PNG',
+        width: 800,
+        height: 600,
+        alt: 'ELRACE Logo',
+        type: 'image/png',
+      },
+    ],
+  },
   icons: {
     icon: [
       {

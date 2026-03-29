@@ -1,10 +1,11 @@
 "use client"
 
 import { useAuth } from "@/components/auth-provider"
-import { Database, LogOut, Zap } from "lucide-react"
+import { LogOut, Zap } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import Image from "next/image"
 
 function getInitials(name: string): string {
   return name
@@ -19,24 +20,21 @@ export function ChatHeader() {
   const { user, logout } = useAuth()
 
   return (
-    <header className="flex items-center justify-between border-b border-border bg-card px-6 py-3">
-      <div className="flex items-center gap-3">
-        <div className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <Database className="size-5" />
-        </div>
+    <header className="flex items-center justify-between border-b border-primary/20 bg-card/40 backdrop-blur-sm px-6 py-4">
+      <div className="flex items-center gap-4">
         <div>
-          <h1 className="text-lg font-semibold text-foreground text-balance">
-            Odoo ERP Assistant
+          <h1 className="text-lg font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent text-balance">
+            ELRACE Odoo Assistant
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             Query projects, employees, tasks & more
           </p>
         </div>
       </div>
 
       <div className="flex items-center gap-3">
-        <Badge variant="outline" className="gap-1.5 text-xs">
-          <Zap className="size-3 text-chart-2" />
+        <Badge variant="outline" className="gap-1.5 text-xs border-primary/30 bg-primary/10">
+          <Zap className="size-3 text-primary" />
           <span>Connected</span>
         </Badge>
 
@@ -48,9 +46,9 @@ export function ChatHeader() {
               </span>
             </div>
 
-            <Avatar className="size-8 border border-border">
+            <Avatar className="size-8 border-2 border-primary/40 ring-1 ring-primary/20">
               <AvatarImage src={user.image} alt={user.name} />
-              <AvatarFallback className="bg-primary/10 text-primary text-xs">
+              <AvatarFallback className="bg-gradient-to-br from-primary to-secondary text-background text-xs font-semibold">
                 {getInitials(user.name)}
               </AvatarFallback>
             </Avatar>
@@ -59,7 +57,7 @@ export function ChatHeader() {
               variant="ghost"
               size="icon"
               onClick={logout}
-              className="size-8 text-muted-foreground hover:text-foreground"
+              className="size-8 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
               aria-label="Sign out"
             >
               <LogOut className="size-4" />
