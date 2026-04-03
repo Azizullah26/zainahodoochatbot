@@ -6,7 +6,6 @@ import {
   validateUIMessages,
   stepCountIs,
 } from "ai"
-import { google } from "@ai-sdk/google"
 import { z } from "zod"
 import { searchRead as jsonRpcSearchRead } from "@/lib/odoo/jsonrpc"
 import { getSession, fetchUserName } from "@/lib/auth"
@@ -801,11 +800,9 @@ export async function POST(req: Request) {
       tools: allTools as any,
     })
 
-    // 6. Stream response with Gemini via Google AI SDK
+    // 6. Stream response with GPT-4o-mini via Vercel AI Gateway
     const result = streamText({
-      model: google("gemini-1.5-flash", {
-        apiKey: process.env.GOOGLE_API_KEY,
-      }),
+      model: "openai/gpt-4o-mini",
       system: systemPrompt,
       messages: await convertToModelMessages(messages),
       tools: allTools,
