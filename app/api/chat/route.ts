@@ -49,13 +49,14 @@ IMPORTANT DISPLAY RULES:
 - Always use friendly names when listing or explaining available options
 - Keep internal technical details hidden from users
 
-You have 6 tools:
+You have 7 tools:
 1. search_read  — fetch records with filters/sorting
 2. read_group   — aggregate/totals (counts, sums)
 3. name_search  — find records by name, returns IDs
 4. calculator   — math calculations
 5. market_intelligence — compare vendor pricing with UAE market benchmarks
 6. cost_analysis — analyze project costs by category (LPO, Petty Cash, Invoice, Labor, Staff)
+7. format_odoo_data — intelligently format and display data, useful for creating summaries/tables or when API has partial failures
 
 NATURAL LANGUAGE → ODOO TRANSLATION:
 Always map user language to the correct model and domain filter:
@@ -753,6 +754,129 @@ function createTools(uid: number, password: string, allowedModels: string[]) {
         } catch (error) {
           return {
             error: `Failed to analyze project costs: ${error instanceof Error ? error.message : "Unknown error"}`,
+          }
+        }
+      },
+    }),
+
+    format_odoo_data: tool({
+      description:
+        "Intelligently format and display Odoo data with fallback handling. Use this when you need to present data in a readable, structured format or when data retrieval had partial failures. This tool helps create beautiful summaries and tables from raw Odoo records.",
+      inputSchema: z.object({
+        data: z.unknown().describe("Raw Odoo data to format (array of records or single record)"),
+        format_type: z
+          .enum(["table", "summary", "list", "statistics"])
+          .describe("How to format the data for display"),
+        title: z.string().optional().describe("Title for the formatted output"),
+        highlights: z
+          .array(z.string())
+          .optional()
+          .describe("Key fields to highlight or summarize"),
+      }),
+      execute: ({ data, format_type, title, highlights }) => {
+        try {
+          if (!data) {
+            return {
+              success: true,
+              formatted: "No data available",
+              message: "The requested data is currently unavailable",
+            }
+          }
+
+          const isArray = Array.isArray(data)
+          const records = isArray ? data : [data as any]
+
+          if (records.length === 0) {
+            return {
+              success: true,
+              formatted: "No records found",
+              message: "The query returned no results",
+            }
+          }
+
+          // Extract key fields for highlighting
+          const fieldsToShow = highlights && highlights.length > 0 ? highlights : Object.keys(records[0] || {}).slice(0, 5)
+
+          let formatted = ""
+
+          if (format_type === "table") {
+            // Create markdown table
+            const headers = fieldsToShow.join(" | ")
+            const separator = fieldsToShow.map(() => "---").join(" | ")
+            const rows = records
+              .map((record: any) =>
+                fieldsToShow
+                  .map((field) => {
+                    const value = record[field]
+                    if (value === null || value === undefined) return "—"
+                    if (typeof value === "object") return JSON.stringify(value)
+                    return String(value).substring(0, 50)
+                  })
+                  .join(" | ")
+              )
+              .join("\n")
+
+            formatted = `${headers}\n${separator}\n${rows}`
+          } else if (format_type === "summary") {
+            // Create summary statistics
+            formatted = records
+              .map((record: any, idx: number) => {
+                const items = fieldsToShow
+                  .map((field) => {
+                    const value = record[field]
+                    return `• **${field}**: ${value === null || value === undefined ? "N/A" : String(value).substring(0, 100)}`
+                  })
+                  .join("\n")
+                return items
+              })
+              .join("\n\n")
+          } else if (format_type === "list") {
+            // Create bulleted list
+            formatted = records
+              .map((record: any) => {
+                const primary = record[fieldsToShow[0]] || "Unnamed"
+                const secondary = fieldsToShow.slice(1, 3)
+                const details = secondary
+                  .map((field) => `${field}: ${record[field] || "N/A"}`)
+                  .join(" | ")
+                return `• **${primary}** — ${details}`
+              })
+              .join("\n")
+          } else if (format_type === "statistics") {
+            // Create statistics summary
+            const numRecords = records.length
+            const stats: Record<string, any> = {
+              "Total Records": numRecords,
+            }
+
+            // Calculate field statistics
+            fieldsToShow.forEach((field) => {
+              const values = records
+                .map((r: any) => r[field])
+                .filter((v: any) => v !== null && v !== undefined)
+              if (values.length > 0) {
+                if (typeof values[0] === "number") {
+                  const sum = (values as number[]).reduce((a, b) => a + b, 0)
+                  stats[`${field} (Total)`] = sum
+                  stats[`${field} (Average)`] = (sum / values.length).toFixed(2)
+                }
+              }
+            })
+
+            formatted = Object.entries(stats)
+              .map(([key, value]) => `• **${key}**: ${value}`)
+              .join("\n")
+          }
+
+          return {
+            success: true,
+            formatted,
+            message: title || `Formatted ${records.length} record(s)`,
+            recordCount: records.length,
+          }
+        } catch (error) {
+          return {
+            error: `Failed to format data: ${error instanceof Error ? error.message : "Unknown error"}`,
           }
         }
       },
