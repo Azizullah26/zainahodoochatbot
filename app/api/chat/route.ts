@@ -800,9 +800,9 @@ export async function POST(req: Request) {
       tools: allTools as any,
     })
 
-    // 6. Stream response with Claude Sonnet 4.6 via Vercel AI Gateway
+    // 6. Stream response with GPT-4o-mini via Vercel AI Gateway
     const result = streamText({
-      model: "anthropic/claude-sonnet-4.6",
+      model: "openai/gpt-4o-mini",
       system: systemPrompt,
       messages: await convertToModelMessages(messages),
       tools: allTools,
